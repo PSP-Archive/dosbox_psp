@@ -94,7 +94,7 @@ profile_regs_ll regs;
 bool profile = false, fixup = false;
 #include <pspdebug.h>
 
-void cache_init(bool);
+//void cache_init(bool);
 void cache_free_memory(void);
 
 #define UNK KBD_NONE
@@ -313,7 +313,7 @@ void GFX_Events() {
 exit:
 	sceKernelWaitSema(main_thsema, 1, NULL);
 	if(suspended == true) {
-		cache_init(reinit);
+	//	cache_init(reinit);
 		suspended = false;
 	}
 }
@@ -1671,7 +1671,7 @@ static void end_game() {
 	sceKernelExitGame();
 }
 
-extern bool cache_initialized;
+static bool cache_initialized;
 
 static int psp_exit_callback(int arg1, int arg2, void *common) {
 	sceKernelTerminateDeleteThread(main_thid);
@@ -1685,7 +1685,7 @@ static int psp_power_callback(int unknown, int powerInfo, void *nothing) {
 		suspended = true;
 		reinit = cache_initialized;
 		cache_initialized = false;
-		if(reinit) cache_free_memory();
+		//if(reinit) cache_free_memory();
 		sceKernelVolatileMemUnlock(0);
 	} else if((powerInfo & PSP_POWER_CB_RESUME_COMPLETE) && (suspended == true)) 
 		sceKernelSignalSema(main_thsema, 1);		// doing VolatileMemLock in the callback doesn't work

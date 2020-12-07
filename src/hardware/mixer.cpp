@@ -618,8 +618,8 @@ static void MIXER_CallBack(void * userdata, Bit8u *stream, int len) {
 
 static const unsigned short freqs[] = {48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 0};
 
-extern "C" int sceAudio_38553111(unsigned short, unsigned short, char);
-extern "C" int sceAudio_E0727056(int, void *);
+//extern "C" int sceAudio_38553111(unsigned short, unsigned short, char);
+//extern "C" int sceAudio_E0727056(int, void *);
 
 static int MIXER_FillBufferThread(SceSize args, void *argp) {
 	Bit32u *curr_ptr, *buf = (Bit32u *)memalign(64, mixer.blocksize*NUM_BUFFERS*MIXER_SSIZE), *work = (Bit32u *)mixer.work;
@@ -627,7 +627,7 @@ static int MIXER_FillBufferThread(SceSize args, void *argp) {
 	SceUID play_thid, done_event;
 	curr_ptr = buf;
 
-	sceAudio_38553111(mixer.blocksize, mixer.freq, 2);
+	//sceAudio_38553111(mixer.blocksize, mixer.freq, 2);
 
 	while(1) {
 		if(mixer.done < need) {
@@ -661,7 +661,7 @@ static int MIXER_FillBufferThread(SceSize args, void *argp) {
 		}
 		mixer.pos = (mixer.pos+need)&MIXER_BUFMASK;
 		SDL_UnlockAudio();
-		sceAudio_E0727056(PSP_AUDIO_VOLUME_MAX, curr_ptr);
+		//sceAudio_E0727056(PSP_AUDIO_VOLUME_MAX, curr_ptr);
 		curr_buf = (curr_buf+1)%NUM_BUFFERS;
 		curr_ptr = &buf[mixer.blocksize*curr_buf];
 	}

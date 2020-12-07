@@ -6104,6 +6104,7 @@ if test "$alsa_prefix" != "" ; then
 fi
 
 ALSA_LIBS="$ALSA_LIBS -lasound -lm -ldl -lpthread"
+ALSA_LIBS=`echo $ALSA_LIBS | sed 's/-lpthread//'`
 LIBS=`echo $LIBS | sed 's/-lm//'`
 LIBS=`echo $LIBS | sed 's/-ldl//'`
 LIBS=`echo $LIBS | sed 's/-lpthread//'`
