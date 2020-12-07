@@ -31,6 +31,10 @@
 #include "cross.h"
 #include "inout.h"
 
+#ifdef PSP
+#include <ftruncate.h>
+#endif
+
 class localFile : public DOS_File {
 public:
 	localFile(const char* name, FILE * handle);
