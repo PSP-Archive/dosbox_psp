@@ -391,8 +391,8 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file, int sectorSize, bool mod
 	return (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1);
 }
 
-#if defined(WIN32)
-static string dirname(char * file) {
+#if defined(WIN32) || defined(PSP)
+char* dirname(char * file) {
 	char * sep = strrchr(file, '\\');
 	if (sep == NULL)
 		sep = strrchr(file, '/');

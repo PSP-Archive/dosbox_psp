@@ -8,3 +8,8 @@ stamp-h1
 *.a
 *.orig
 *.rej
+dosbox
+*.prx
+*.PBP
+*.SFO
+
