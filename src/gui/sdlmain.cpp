@@ -32,7 +32,9 @@
 #include <signal.h>
 #endif
 
+#ifdef USE_SDL
 #include "SDL.h"
+#endif
 
 #include "dosbox.h"
 #include "video.h"
@@ -45,8 +47,278 @@
 #include "mapper.h"
 #include "vga.h"
 #include "keyboard.h"
+#include "joystick.h"
 
 //#define DISABLE_JOYSTICK
+#ifdef WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#if (HAVE_DDRAW_H)
+#include <ddraw.h>
+struct private_hwdata {
+	LPDIRECTDRAWSURFACE3 dd_surface;
+	LPDIRECTDRAWSURFACE3 dd_writebuf;
+};
+#endif
+
+#define STDOUT_FILE	TEXT("stdout.txt")
+#define STDERR_FILE	TEXT("stderr.txt")
+#define DEFAULT_CONFIG_FILE "/dosbox.conf"
+#elif defined(MACOSX)
+#define DEFAULT_CONFIG_FILE "/Library/Preferences/DOSBox Preferences"
+#else /*linux freebsd*/
+#define DEFAULT_CONFIG_FILE "/.dosboxrc"
+#endif
+
+#ifdef PSP
+#include <pspsdk.h>
+#include <pspdebug.h>
+#include <pspkernel.h>
+#include <pspdisplay.h>
+#include <pspctrl.h>
+#include <pspirkeyb.h>
+#include "p_sprint.h"
+#ifdef PSPME
+#include "me_rpc.h"
+#endif
+
+static int sensitivity;
+bool control_map = false, joy_state = false, irkeyb = false, show_key_hint = false;
+bool autofire = false, startup_state_capslock = false, startup_state_numlock = false;
+static SceUID main_thsema;
+static bool suspended = false, reinit = false, key_hint = false;
+char build_version[] = "DOSBox " VERSION "-psp build " __DATE__ " " __TIME__;
+profile_regs_ll regs;
+bool profile = false, fixup = false;
+#include <pspdebug.h>
+
+void cache_init(bool);
+void cache_free_memory(void);
+
+#define UNK KBD_NONE
+keymap inputmap[] =
+{{ KBD_esc, PSP_CTRL_SELECT },
+{ KBD_enter, PSP_CTRL_START },
+{ KBD_up, PSP_CTRL_UP },
+{ KBD_right, PSP_CTRL_RIGHT },
+{ KBD_down, PSP_CTRL_DOWN },
+{ KBD_left, PSP_CTRL_LEFT },
+{ KBD_w, PSP_CTRL_TRIANGLE },
+{ KBD_d, PSP_CTRL_CIRCLE },
+{ KBD_s, PSP_CTRL_CROSS },
+{ KBD_a, PSP_CTRL_SQUARE },
+{ KBD_button1, PSP_CTRL_LTRIGGER },
+{ KBD_button2, PSP_CTRL_RTRIGGER },
+{ UNK, 0 }};
+
+static const KBD_KEYS ir_xlate_table[] = { UNK, KBD_esc, KBD_1, KBD_2, KBD_3, KBD_4, KBD_5, KBD_6, KBD_7,
+	KBD_8, KBD_9, KBD_0, KBD_minus, KBD_equals, KBD_backspace, KBD_tab, KBD_q, KBD_w, KBD_e, KBD_r, KBD_t,
+	KBD_y, KBD_u, KBD_i, KBD_o, KBD_p, KBD_leftbracket, KBD_rightbracket, KBD_enter, KBD_leftctrl, KBD_a,
+	KBD_s, KBD_d, KBD_f, KBD_g, KBD_h, KBD_j, KBD_k, KBD_l, KBD_semicolon, KBD_quote, KBD_grave, KBD_leftshift,
+	KBD_backslash, KBD_z, KBD_x, KBD_c, KBD_v, KBD_b, KBD_n, KBD_m, KBD_comma, KBD_period, KBD_slash, KBD_rightshift,
+	KBD_kpmultiply, KBD_leftalt, KBD_space, KBD_capslock, KBD_f1, KBD_f2, KBD_f3, KBD_f4, KBD_f5, KBD_f6, KBD_f7,
+	KBD_f8, KBD_f9, KBD_f10, KBD_numlock, KBD_scrolllock, KBD_kp7, KBD_kp8, KBD_kp9, KBD_kpminus, KBD_kp4,
+	KBD_kp5, KBD_kp6, KBD_kpplus, KBD_kp1, KBD_kp2, KBD_kp3, KBD_kp0, KBD_kpperiod, UNK, UNK, UNK, UNK, UNK, UNK,
+	UNK, UNK, UNK, UNK, UNK, UNK, KBD_kpenter, KBD_rightctrl, KBD_kpdivide, KBD_printscreen, KBD_rightalt, UNK,
+	KBD_home, KBD_up, KBD_pageup, KBD_left, KBD_right, KBD_end, KBD_down, KBD_pagedown, KBD_insert, KBD_delete, UNK,
+	UNK, UNK, UNK, UNK, UNK, UNK, KBD_pause};
+
+void Mouse_AutoLock(bool enable) {}
+void GUI_StartUp(Section * sec) {
+	Section_prop * section=static_cast<Section_prop *>(sec);
+	std::string inifile=section->Get_string("irkeybini");
+	sensitivity=section->Get_int("sensitivity");
+	key_hint=section->Get_bool("keyhint");
+	if(pspIrKeybInit((inifile == "")?NULL:inifile.c_str(),0) < 0)
+		LOG_MSG("GUI:IR keyboard not found");
+	else {
+		LOG_MSG("GUI:IR keyboard found");
+		irkeyb = true;
+		pspIrKeybOutputMode(PSP_IRKBD_OUTPUT_MODE_SCANCODE);
+		atexit((void (*)())pspIrKeybFinish);
+	}
+}
+
+void GFX_SetTitle(Bits cycles,Bits frameskip,bool paused){ }
+void MAPPER_AddHandler(MAPPER_Handler * handler,MapKeys key,Bitu mods,char const * const eventname,char const * const buttonname) {
+	// TODO: implement
+}
+
+void GFX_Events() {
+	SceCtrlData pad;
+	int x, y;
+	SIrKeybScanCodeData key_state;
+	static Bitu prev_pad = 0, last_sample = 0;
+	static bool state_change = false, init = false;
+	bool do_joy = false, do_keyb = false;
+	char buffer[255];
+	int length;
+
+	sceKernelSignalSema(main_thsema, 1);
+	
+	if (!init) {
+		sceCtrlSetSamplingCycle(0);
+		sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+		JOYSTICK_Enable(0, true);
+		JOYSTICK_Button(0, 0, false);
+		JOYSTICK_Button(0, 1, false);
+		JOYSTICK_Move_X(0, 0);
+		JOYSTICK_Move_Y(0, 0);
+		init = true;
+	}
+
+#ifdef PSPME
+	sc_read_queue();
+#endif
+
+	if (PIC_Ticks < (last_sample + 17)) goto exit;  // limit the input rate to 60Hz
+	last_sample = PIC_Ticks;
+	
+	if(profile) {
+		PspDebugProfilerRegs small_regs;
+		pspDebugProfilerGetRegs(&small_regs);
+		regs.systemck += small_regs.systemck;
+		regs.cpuck += small_regs.cpuck;
+		regs.internal += small_regs.internal;
+		regs.memory += small_regs.memory;
+		regs.copz += small_regs.copz;
+		regs.vfpu += small_regs.vfpu;
+		regs.sleep += small_regs.sleep;
+		regs.bus_access += small_regs.bus_access;
+		regs.uncached_load += small_regs.uncached_load;
+		regs.uncached_store += small_regs.uncached_store;
+		regs.cached_load += small_regs.cached_load;
+		regs.cached_store += small_regs.cached_store;
+		regs.i_miss += small_regs.i_miss;
+		regs.d_miss += small_regs.d_miss;
+		regs.d_writeback += small_regs.d_writeback;
+		regs.cop0_inst += small_regs.cop0_inst;
+		regs.fpu_inst += small_regs.fpu_inst;
+		regs.vfpu_inst += small_regs.vfpu_inst;
+		regs.local_bus += small_regs.local_bus;
+		pspDebugProfilerClear();
+	}
+
+	if(sceCtrlPeekBufferPositive(&pad, 1) <= 0) goto exit; 
+	pad.Buttons &= 0xFFFF;
+	
+	if(state_change && pad.Buttons)
+		goto exit;
+	if(pad.Buttons == (PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER | PSP_CTRL_START | PSP_CTRL_DOWN)) {
+		state_change = true;
+		do_joy = true;
+		pad.Buttons = 0;
+		pad.Lx = 127;
+		pad.Ly = 127;
+	}
+	if(pad.Buttons == (PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER | PSP_CTRL_SELECT | PSP_CTRL_DOWN)) {
+		state_change = true;
+		do_keyb = true;
+		pad.Buttons = 0;
+	}
+
+	if(!do_joy && !do_keyb) state_change = false;
+
+	x = (int)pad.Lx - 127;
+	y = (int)pad.Ly - 127;
+	
+	/* 32x32 dead zone */
+	if(!((x+16)>>5) && !((y+16)>>5)) {
+		x = 0;
+		y = 0;
+	}
+
+	if(joy_state) {
+		JOYSTICK_Move_X(0, (float)x/127.0f);
+		JOYSTICK_Move_Y(0, (float)y/127.0f);
+	} else if(x || y) {
+		Bits absx = (x>0)?(sensitivity):(-1*sensitivity);
+		Bits absy = (y>0)?(sensitivity):(-1*sensitivity);
+		Mouse_CursorMoved((float)(absx*x*x)/100000.0f, (float)(absy*y*y)/100000.0f, 1, 1, 1);
+	}
+
+	if(irkeyb && (pspIrKeybReadinput(buffer, &length) == PSP_IRKBD_RESULT_OK) && (length > 0)) {
+		int count = length / sizeof(SIrKeybScanCodeData);
+		SIrKeybScanCodeData *key;
+		for(int i = 0; i < count; i++) {
+			key = &((SIrKeybScanCodeData *)buffer)[i];
+			if(key->raw > 119) continue;
+			KEYBOARD_AddKey(ir_xlate_table[key->raw], key->pressed);
+		}
+	}
+	if(control_map) {
+		show_key_hint = false;
+		for(Bitu i=0; inputmap[i].mask; i++) 
+			if(pad.Buttons & inputmap[i].mask) {
+				if(prev_pad & inputmap[i].mask) continue;
+				switch(inputmap[i].key) {
+				case KBD_button1:
+					if(joy_state) JOYSTICK_Button(0, 0, true);
+					else Mouse_ButtonPressed(0);
+					break;
+				case KBD_button2:
+					if(joy_state) JOYSTICK_Button(0, 1, true);
+					else Mouse_ButtonPressed(1);
+					break;
+				default:
+					KEYBOARD_AddKey(inputmap[i].key, 1);
+				}
+			} else if(prev_pad & inputmap[i].mask) {
+				switch(inputmap[i].key) {
+				case KBD_button1:
+					if(joy_state) JOYSTICK_Button(0, 0, false);
+					else Mouse_ButtonReleased(0);
+					break;
+				case KBD_button2:
+					if(joy_state) JOYSTICK_Button(0, 1, false);
+					else Mouse_ButtonReleased(1);
+					break;
+				default: 
+					KEYBOARD_AddKey(inputmap[i].key, 0);
+				}
+			}
+	} else {
+		if(key_hint) show_key_hint = true;
+		if(p_spReadKey(&key_state, pad.Buttons)) {
+			if(key_state.ctrl) KEYBOARD_AddKey(KBD_leftctrl, key_state.pressed);
+			if(key_state.alt) KEYBOARD_AddKey(KBD_leftalt, key_state.pressed);
+			if(key_state.shift) KEYBOARD_AddKey(KBD_leftshift, key_state.pressed);
+			KEYBOARD_AddKey(ir_xlate_table[key_state.raw], key_state.pressed);
+		}
+		if(pad.Buttons & PSP_CTRL_LTRIGGER) {
+			if(!(prev_pad & PSP_CTRL_LTRIGGER))
+				if(joy_state) JOYSTICK_Button(0, 0, true);
+				else Mouse_ButtonPressed(0);
+		} else if(prev_pad & PSP_CTRL_LTRIGGER) {
+				if(joy_state) JOYSTICK_Button(0, 0, false);
+				else Mouse_ButtonReleased(0);
+		}
+		if(pad.Buttons & PSP_CTRL_RTRIGGER) {
+			if(!(prev_pad & PSP_CTRL_RTRIGGER))
+				if(joy_state) JOYSTICK_Button(0, 1, true);
+				else Mouse_ButtonPressed(1);
+		} else if(prev_pad & PSP_CTRL_RTRIGGER) {
+				if(joy_state) JOYSTICK_Button(0, 1, false);
+				else Mouse_ButtonReleased(1);
+		}
+	}
+	prev_pad = pad.Buttons;
+	if(state_change) { 
+		if(do_joy) joy_state = !joy_state;
+		if(do_keyb) control_map = !control_map;
+	}
+		
+exit:
+	sceKernelWaitSema(main_thsema, 1, NULL);
+	if(suspended == true) {
+		cache_init(reinit);
+		suspended = false;
+	}
+}
+
+#else
 
 #if C_OPENGL
 #include "SDL_opengl.h"
@@ -57,6 +329,7 @@
 #ifndef APIENTRYP
 #define APIENTRYP APIENTRY *
 #endif
+
 
 #ifdef __WIN32__
 #define NVIDIA_PixelDataRange 1
@@ -91,28 +364,6 @@ PFNGLPIXELDATARANGENVPROC glPixelDataRangeNV = NULL;
 
 #if !(ENVIRON_INCLUDED)
 extern char** environ;
-#endif
-
-#ifdef WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#if (HAVE_DDRAW_H)
-#include <ddraw.h>
-struct private_hwdata {
-	LPDIRECTDRAWSURFACE3 dd_surface;
-	LPDIRECTDRAWSURFACE3 dd_writebuf;
-};
-#endif
-
-#define STDOUT_FILE	TEXT("stdout.txt")
-#define STDERR_FILE	TEXT("stderr.txt")
-#define DEFAULT_CONFIG_FILE "/dosbox.conf"
-#elif defined(MACOSX)
-#define DEFAULT_CONFIG_FILE "/Library/Preferences/DOSBox Preferences"
-#else /*linux freebsd*/
-#define DEFAULT_CONFIG_FILE "/.dosboxrc"
 #endif
 
 #if C_SET_PRIORITY
@@ -1327,6 +1578,142 @@ static BOOL WINAPI ConsoleEventHandler(DWORD event) {
 }
 #endif
 
+#endif
+
+#ifdef PSP
+#include <pspiofilemgr.h>
+#include <psppower.h>
+#include <pspsuspend.h>
+#include <pspsysmem_kernel.h>
+#include <pspmodulemgr.h>
+#include "regs.h"
+
+extern "C" {
+
+static const char x86_regs[][4] = {
+	"eax","ecx","edx","ebx","esp","ebp","esi","edi","es","cs","ss","ds","fs","gs","eip" };
+	
+static void dump_x86_regs() {
+	int i;
+	pspDebugScreenPrintf("\n");
+        for(i = 0; i < 8; i+=4)
+                pspDebugScreenPrintf("%s:%08X %s:%08X %s:%08X %s:%08X\n", x86_regs[i], cpu_regs.regs[i].dword[DW_INDEX],
+                                x86_regs[i+1], cpu_regs.regs[i+1].dword[DW_INDEX],x86_regs[i+2], cpu_regs.regs[i+2].dword[DW_INDEX],
+				x86_regs[i+3], cpu_regs.regs[i+3].dword[DW_INDEX]);
+	
+	pspDebugScreenPrintf("%s:%08X %s:%08X %s:%08X %s:%08X\n", x86_regs[8], Segs.val[0],
+                                x86_regs[9], Segs.val[1],x86_regs[10], Segs.val[2], x86_regs[11], Segs.val[3]);
+	pspDebugScreenPrintf("%s:%08X %s:%08X %s:%08X\n", x86_regs[12], Segs.val[4], 
+                                x86_regs[13], Segs.val[5], x86_regs[14], cpu_regs.ip.dword[DW_INDEX]);
+}
+
+static bool in_exception = false;
+
+static void trap_handler(PspDebugRegBlock *regs) {
+	if(in_exception) __asm__ volatile(".word 0x70000000");
+	in_exception = true;
+	pspDebugScreenInit();
+	pspDebugScreenPrintf("%s\n", build_version);
+	pspDebugDumpException(regs);
+	dump_x86_regs();
+	sceKernelSleepThread();
+}
+
+#ifdef PSPME
+void me_trap_handler(PspDebugRegBlock *regs) {
+	pspDebugScreenInit();
+	pspDebugScreenPrintf("ME exception\n");
+	pspDebugDumpException(regs);
+	dump_x86_regs();
+	sceKernelSleepThread();
+}
+#endif
+PSP_MODULE_INFO("DOSBox", 0, 1, 1);
+PSP_HEAP_SIZE_KB(-1);
+PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER|PSP_THREAD_ATTR_VFPU);
+
+static PspDebugRegBlock exception_regs;
+char *realpath(const char *file_name, char *resolved_name);
+
+__attribute__((constructor)) void install_trap_handler() {
+	SceKernelLMOption option;
+	char path[MAXPATHLEN];
+	int args[2], fd, modid;
+
+	memset(&option, 0, sizeof(option));
+	option.size = sizeof(option);
+	option.mpidtext = PSP_MEMORY_PARTITION_KERNEL;
+	option.mpiddata = PSP_MEMORY_PARTITION_KERNEL;
+	option.position = 0;
+	option.access = 1;
+
+	if(realpath("exception.prx", path) && ((modid = sceKernelLoadModule(path, 0, &option)) >= 0)) {
+		args[0] = (int)trap_handler;
+		args[1] = (int)&exception_regs;
+		sceKernelStartModule(modid, 8, args, &fd, NULL);
+	}
+
+	if(realpath("fixup.prx", path) && ((modid = sceKernelLoadModule(path, 0, &option)) >= 0)) {
+		fixup = true;
+		sceKernelStartModule(modid, 0, args, &fd, NULL);
+		sceKernelUnloadModule(modid);
+	}
+}
+
+static SceUID main_thid;
+static int exit_cbid;
+
+static void end_game() {
+#ifdef PSPME
+	stop_me();
+#endif		
+	sceKernelVolatileMemUnlock(0);
+	sceKernelExitGame();
+}
+
+extern bool cache_initialized;
+
+static int psp_exit_callback(int arg1, int arg2, void *common) {
+	sceKernelTerminateDeleteThread(main_thid);
+	exit(0);
+	return 0;
+}
+
+static int psp_power_callback(int unknown, int powerInfo, void *nothing) {
+	if((powerInfo & PSP_POWER_CB_POWER_SWITCH) && (suspended == false)) {
+		sceKernelWaitSema(main_thsema, 1, NULL);
+		suspended = true;
+		reinit = cache_initialized;
+		cache_initialized = false;
+		if(reinit) cache_free_memory();
+		sceKernelVolatileMemUnlock(0);
+	} else if((powerInfo & PSP_POWER_CB_RESUME_COMPLETE) && (suspended == true)) 
+		sceKernelSignalSema(main_thsema, 1);		// doing VolatileMemLock in the callback doesn't work
+	return 0;
+}
+
+
+static int psp_callback_thread(SceSize args, void *argp) {
+	int cbid;
+	cbid = sceKernelCreateCallback("Power Callback", psp_power_callback, NULL);
+	scePowerRegisterCallback(0, cbid);
+	exit_cbid = sceKernelCreateCallback("Exit Callback", psp_exit_callback, NULL);
+	sceKernelRegisterExitCallback(exit_cbid);
+	sceKernelSleepThreadCB();
+}
+
+static int psp_setup_callbacks(void) {
+	int thid = 0;
+	atexit(end_game);
+	main_thid = sceKernelGetThreadId();
+	main_thsema = sceKernelCreateSema("Suspend Sema", 0, 0, 1, NULL);
+	thid = sceKernelCreateThread("update_thread", psp_callback_thread, 0x11, 512, PSP_THREAD_ATTR_USER, 0);
+	if(thid >= 0) sceKernelStartThread(thid, 0, 0);
+	return thid;
+}
+}
+#endif
+
 
 /* static variable to show wether there is not a valid stdout.
  * Fixes some bugs when -noconsole is used in a read only directory */
@@ -1342,11 +1729,26 @@ void GFX_ShowMsg(char const* format,...) {
 	if(!no_stdout) printf(buf);       
 };
 
-int main(int argc, char* argv[]) {
+extern "C" int main(int argc, char* argv[]) {
 	try {
 		CommandLine com_line(argc,argv);
 		Config myconf(&com_line);
 		control=&myconf;
+
+#ifdef PSP
+		psp_setup_callbacks();
+		pspSdkDisableFPUExceptions();
+#ifdef PSPME
+		init_me();
+#endif
+#endif
+
+		if (control->cmdline->FindExist("-version") || 
+		    control->cmdline->FindExist("--version") ) {
+			printf(VERSION "\n");
+			return 0;
+		}
+	   
 
 		/* Can't disable the console with debugger enabled */
 #if defined(WIN32) && !(C_DEBUG)
@@ -1396,13 +1798,7 @@ int main(int argc, char* argv[]) {
         setbuf(stdout, NULL);
         setbuf(stderr, NULL);
 #endif
-
-	/* Display Welcometext in the console */
-	LOG_MSG("DOSBox version %s",VERSION);
-	LOG_MSG("Copyright 2002-2007 DOSBox Team, published under GNU GPL.");
-	LOG_MSG("---");
-
-	/* Init SDL */
+#ifdef USE_SDL
 	if ( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_CDROM
 		|SDL_INIT_NOPARACHUTE
 		) < 0 ) E_Exit("Can't init SDL %s",SDL_GetError());
@@ -1443,8 +1839,11 @@ int main(int argc, char* argv[]) {
 		}
 #endif
 		sdl.num_joysticks=SDL_NumJoysticks();
+#endif
 		Section_prop * sdl_sec=control->AddSection_prop("sdl",&GUI_StartUp);
+#ifdef USE_SDL
 		sdl_sec->AddInitFunction(&MAPPER_StartUp);
+#endif
 		sdl_sec->Add_bool("fullscreen",false);
 		sdl_sec->Add_bool("fulldouble",false);
 		sdl_sec->Add_string("fullresolution","original");
@@ -1456,6 +1855,8 @@ int main(int argc, char* argv[]) {
 		sdl_sec->Add_string("priority","higher,normal");
 		sdl_sec->Add_string("mapperfile","mapper.txt");
 		sdl_sec->Add_bool("usescancodes",true);
+		sdl_sec->Add_string("irkeybini","");
+		sdl_sec->Add_bool("keyhint",false);
 
 		MSG_Add("SDL_CONFIGFILE_HELP",
 			"fullscreen -- Start dosbox directly in fullscreen.\n"
@@ -1502,6 +1903,7 @@ int main(int argc, char* argv[]) {
 #endif
 		/* Init all the sections */
 		control->Init();
+#ifdef USE_SDL
 		/* Some extra SDL Functions */
 		if (control->cmdline->FindExist("-fullscreen") || sdl_sec->Get_bool("fullscreen")) {
 			if(!sdl.desktop.fullscreen) { //only switch if not allready in fullscreen
@@ -1512,13 +1914,14 @@ int main(int argc, char* argv[]) {
 		/* Init the keyMapper */
 		MAPPER_Init();
 		if (control->cmdline->FindExist("-startmapper")) MAPPER_Run(true);
-
+#endif
 		/* Start up main machine */
 		control->StartUp();
 		/* Shutdown everything */
 	} catch (char * error) {
 		GFX_ShowMsg("Exit to error: %s",error);
 		fflush(NULL);
+#ifdef USE_SDL
 		if(sdl.wait_on_error) {
 			//TODO Maybe look for some way to show message in linux?
 #if (C_DEBUG)
@@ -1529,14 +1932,26 @@ int main(int argc, char* argv[]) {
 			Sleep(5000);
 #endif 
 		}
-
+#elif defined(PSP)
+		pspIrKeybFinish();
+		pspDebugScreenInit();
+		pspDebugScreenPrintf("Exit to error: %s", error);
+		sceKernelSleepThread();
+#endif
 	}
 	catch (int){ 
 		;//nothing pressed killswitch
 	}
+#ifndef PSP
 	catch(...){
 		throw;//dunno what happened. rethrow for sdl to catch 
 	}
+#else
+	sceKernelNotifyCallback(exit_cbid, 0);
+	sceKernelSleepThread();
+#endif
+#ifdef USE_SDL
 	SDL_Quit();//Let's hope sdl will quit as well when it catches an exception
+#endif
 	return 0;
 };

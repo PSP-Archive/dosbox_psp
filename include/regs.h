@@ -59,8 +59,8 @@ struct Segment {
 enum SegNames { es=0,cs,ss,ds,fs,gs};
 
 struct Segments {
-	Bitu val[8];
-	PhysPt phys[8];
+	Bitu val[6];
+	PhysPt phys[6];
 };
 
 union GenReg32 {

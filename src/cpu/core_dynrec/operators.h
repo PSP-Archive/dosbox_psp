@@ -393,41 +393,41 @@ static void DRC_CALL_CONV dynrec_test_dword_simple(Bit32u op1,Bit32u op2) {
 static void dyn_dop_byte_gencall(DualOps op) {
 	switch (op) {
 		case DOP_ADD:
-			InvalidateFlags((void*)&dynrec_add_byte_simple,t_ADDb);
+			InvalidateFlags((void*)&dynrec_add_byte_simple,gen_get_cpos(),t_ADDb);
 			gen_call_function_raw((void*)&dynrec_add_byte);
 			break;
 		case DOP_ADC:
 			AcquireFlags(FLAG_CF);
-			InvalidateFlagsPartially((void*)&dynrec_adc_byte_simple,t_ADCb);
+			InvalidateFlagsPartially((void*)&dynrec_adc_byte_simple,gen_get_cpos(),t_ADCb);
 			gen_call_function_raw((void*)&dynrec_adc_byte);
 			break;
 		case DOP_SUB:
-			InvalidateFlags((void*)&dynrec_sub_byte_simple,t_SUBb);
+			InvalidateFlags((void*)&dynrec_sub_byte_simple,gen_get_cpos(),t_SUBb);
 			gen_call_function_raw((void*)&dynrec_sub_byte);
 			break;
 		case DOP_SBB:
 			AcquireFlags(FLAG_CF);
-			InvalidateFlagsPartially((void*)&dynrec_sbb_byte_simple,t_SBBb);
+			InvalidateFlagsPartially((void*)&dynrec_sbb_byte_simple,gen_get_cpos(),t_SBBb);
 			gen_call_function_raw((void*)&dynrec_sbb_byte);
 			break;
 		case DOP_CMP:
-			InvalidateFlags((void*)&dynrec_cmp_byte_simple,t_CMPb);
+			InvalidateFlags((void*)&dynrec_cmp_byte_simple,gen_get_cpos(),t_CMPb);
 			gen_call_function_raw((void*)&dynrec_cmp_byte);
 			break;
 		case DOP_XOR:
-			InvalidateFlags((void*)&dynrec_xor_byte_simple,t_XORb);
+			InvalidateFlags((void*)&dynrec_xor_byte_simple,gen_get_cpos(),t_XORb);
 			gen_call_function_raw((void*)&dynrec_xor_byte);
 			break;
 		case DOP_AND:
-			InvalidateFlags((void*)&dynrec_and_byte_simple,t_ANDb);
+			InvalidateFlags((void*)&dynrec_and_byte_simple,gen_get_cpos(),t_ANDb);
 			gen_call_function_raw((void*)&dynrec_and_byte);
 			break;
 		case DOP_OR:
-			InvalidateFlags((void*)&dynrec_or_byte_simple,t_ORb);
+			InvalidateFlags((void*)&dynrec_or_byte_simple,gen_get_cpos(),t_ORb);
 			gen_call_function_raw((void*)&dynrec_or_byte);
 			break;
 		case DOP_TEST:
-			InvalidateFlags((void*)&dynrec_test_byte_simple,t_TESTb);
+			InvalidateFlags((void*)&dynrec_test_byte_simple,gen_get_cpos(),t_TESTb);
 			gen_call_function_raw((void*)&dynrec_test_byte);
 			break;
 		default: IllegalOptionDynrec("dyn_dop_byte_gencall");
@@ -438,41 +438,41 @@ static void dyn_dop_word_gencall(DualOps op,bool dword) {
 	if (dword) {
 		switch (op) {
 			case DOP_ADD:
-				InvalidateFlags((void*)&dynrec_add_dword_simple,t_ADDd);
+				InvalidateFlags((void*)&dynrec_add_dword_simple,gen_get_cpos(),t_ADDd);
 				gen_call_function_raw((void*)&dynrec_add_dword);
 				break;
 			case DOP_ADC:
 				AcquireFlags(FLAG_CF);
-				InvalidateFlagsPartially((void*)&dynrec_adc_dword_simple,t_ADCd);
+				InvalidateFlagsPartially((void*)&dynrec_adc_dword_simple,gen_get_cpos(),t_ADCd);
 				gen_call_function_raw((void*)&dynrec_adc_dword);
 				break;
 			case DOP_SUB:
-				InvalidateFlags((void*)&dynrec_sub_dword_simple,t_SUBd);
+				InvalidateFlags((void*)&dynrec_sub_dword_simple,gen_get_cpos(),t_SUBd);
 				gen_call_function_raw((void*)&dynrec_sub_dword);
 				break;
 			case DOP_SBB:
 				AcquireFlags(FLAG_CF);
-				InvalidateFlagsPartially((void*)&dynrec_sbb_dword_simple,t_SBBd);
+				InvalidateFlagsPartially((void*)&dynrec_sbb_dword_simple,gen_get_cpos(),t_SBBd);
 				gen_call_function_raw((void*)&dynrec_sbb_dword);
 				break;
 			case DOP_CMP:
-				InvalidateFlags((void*)&dynrec_cmp_dword_simple,t_CMPd);
+				InvalidateFlags((void*)&dynrec_cmp_dword_simple,gen_get_cpos(),t_CMPd);
 				gen_call_function_raw((void*)&dynrec_cmp_dword);
 				break;
 			case DOP_XOR:
-				InvalidateFlags((void*)&dynrec_xor_dword_simple,t_XORd);
+				InvalidateFlags((void*)&dynrec_xor_dword_simple,gen_get_cpos(),t_XORd);
 				gen_call_function_raw((void*)&dynrec_xor_dword);
 				break;
 			case DOP_AND:
-				InvalidateFlags((void*)&dynrec_and_dword_simple,t_ANDd);
+				InvalidateFlags((void*)&dynrec_and_dword_simple,gen_get_cpos(),t_ANDd);
 				gen_call_function_raw((void*)&dynrec_and_dword);
 				break;
 			case DOP_OR:
-				InvalidateFlags((void*)&dynrec_or_dword_simple,t_ORd);
+				InvalidateFlags((void*)&dynrec_or_dword_simple,gen_get_cpos(),t_ORd);
 				gen_call_function_raw((void*)&dynrec_or_dword);
 				break;
 			case DOP_TEST:
-				InvalidateFlags((void*)&dynrec_test_dword_simple,t_TESTd);
+				InvalidateFlags((void*)&dynrec_test_dword_simple,gen_get_cpos(),t_TESTd);
 				gen_call_function_raw((void*)&dynrec_test_dword);
 				break;
 			default: IllegalOptionDynrec("dyn_dop_dword_gencall");
@@ -480,41 +480,41 @@ static void dyn_dop_word_gencall(DualOps op,bool dword) {
 	} else {
 		switch (op) {
 			case DOP_ADD:
-				InvalidateFlags((void*)&dynrec_add_word_simple,t_ADDw);
+				InvalidateFlags((void*)&dynrec_add_word_simple,gen_get_cpos(),t_ADDw);
 				gen_call_function_raw((void*)&dynrec_add_word);
 				break;
 			case DOP_ADC:
 				AcquireFlags(FLAG_CF);
-				InvalidateFlagsPartially((void*)&dynrec_adc_word_simple,t_ADCw);
+				InvalidateFlagsPartially((void*)&dynrec_adc_word_simple,gen_get_cpos(),t_ADCw);
 				gen_call_function_raw((void*)&dynrec_adc_word);
 				break;
 			case DOP_SUB:
-				InvalidateFlags((void*)&dynrec_sub_word_simple,t_SUBw);
+				InvalidateFlags((void*)&dynrec_sub_word_simple,gen_get_cpos(),t_SUBw);
 				gen_call_function_raw((void*)&dynrec_sub_word);
 				break;
 			case DOP_SBB:
 				AcquireFlags(FLAG_CF);
-				InvalidateFlagsPartially((void*)&dynrec_sbb_word_simple,t_SBBw);
+				InvalidateFlagsPartially((void*)&dynrec_sbb_word_simple,gen_get_cpos(),t_SBBw);
 				gen_call_function_raw((void*)&dynrec_sbb_word);
 				break;
 			case DOP_CMP:
-				InvalidateFlags((void*)&dynrec_cmp_word_simple,t_CMPw);
+				InvalidateFlags((void*)&dynrec_cmp_word_simple,gen_get_cpos(),t_CMPw);
 				gen_call_function_raw((void*)&dynrec_cmp_word);
 				break;
 			case DOP_XOR:
-				InvalidateFlags((void*)&dynrec_xor_word_simple,t_XORw);
+				InvalidateFlags((void*)&dynrec_xor_word_simple,gen_get_cpos(),t_XORw);
 				gen_call_function_raw((void*)&dynrec_xor_word);
 				break;
 			case DOP_AND:
-				InvalidateFlags((void*)&dynrec_and_word_simple,t_ANDw);
+				InvalidateFlags((void*)&dynrec_and_word_simple,gen_get_cpos(),t_ANDw);
 				gen_call_function_raw((void*)&dynrec_and_word);
 				break;
 			case DOP_OR:
-				InvalidateFlags((void*)&dynrec_or_word_simple,t_ORw);
+				InvalidateFlags((void*)&dynrec_or_word_simple,gen_get_cpos(),t_ORw);
 				gen_call_function_raw((void*)&dynrec_or_word);
 				break;
 			case DOP_TEST:
-				InvalidateFlags((void*)&dynrec_test_word_simple,t_TESTw);
+				InvalidateFlags((void*)&dynrec_test_word_simple,gen_get_cpos(),t_TESTw);
 				gen_call_function_raw((void*)&dynrec_test_word);
 				break;
 			default: IllegalOptionDynrec("dyn_dop_word_gencall");
@@ -665,18 +665,18 @@ static Bit32u DRC_CALL_CONV dynrec_neg_dword_simple(Bit32u op) {
 static void dyn_sop_byte_gencall(SingleOps op) {
 	switch (op) {
 		case SOP_INC:
-			InvalidateFlagsPartially((void*)&dynrec_inc_byte_simple,t_INCb);
+			InvalidateFlagsPartially((void*)&dynrec_inc_byte_simple,gen_get_cpos(),t_INCb);
 			gen_call_function_raw((void*)&dynrec_inc_byte);
 			break;
 		case SOP_DEC:
-			InvalidateFlagsPartially((void*)&dynrec_dec_byte_simple,t_DECb);
+			InvalidateFlagsPartially((void*)&dynrec_dec_byte_simple,gen_get_cpos(),t_DECb);
 			gen_call_function_raw((void*)&dynrec_dec_byte);
 			break;
 		case SOP_NOT:
 			gen_call_function_raw((void*)&dynrec_not_byte);
 			break;
 		case SOP_NEG:
-			InvalidateFlags((void*)&dynrec_neg_byte_simple,t_NEGb);
+			InvalidateFlags((void*)&dynrec_neg_byte_simple,gen_get_cpos(),t_NEGb);
 			gen_call_function_raw((void*)&dynrec_neg_byte);
 			break;
 		default: IllegalOptionDynrec("dyn_sop_byte_gencall");
@@ -687,18 +687,18 @@ static void dyn_sop_word_gencall(SingleOps op,bool dword) {
 	if (dword) {
 		switch (op) {
 			case SOP_INC:
-				InvalidateFlagsPartially((void*)&dynrec_inc_dword_simple,t_INCd);
+				InvalidateFlagsPartially((void*)&dynrec_inc_dword_simple,gen_get_cpos(),t_INCd);
 				gen_call_function_raw((void*)&dynrec_inc_dword);
 				break;
 			case SOP_DEC:
-				InvalidateFlagsPartially((void*)&dynrec_dec_dword_simple,t_DECd);
+				InvalidateFlagsPartially((void*)&dynrec_dec_dword_simple,gen_get_cpos(),t_DECd);
 				gen_call_function_raw((void*)&dynrec_dec_dword);
 				break;
 			case SOP_NOT:
 				gen_call_function_raw((void*)&dynrec_not_dword);
 				break;
 			case SOP_NEG:
-				InvalidateFlags((void*)&dynrec_neg_dword_simple,t_NEGd);
+				InvalidateFlags((void*)&dynrec_neg_dword_simple,gen_get_cpos(),t_NEGd);
 				gen_call_function_raw((void*)&dynrec_neg_dword);
 				break;
 			default: IllegalOptionDynrec("dyn_sop_dword_gencall");
@@ -706,18 +706,18 @@ static void dyn_sop_word_gencall(SingleOps op,bool dword) {
 	} else {
 		switch (op) {
 			case SOP_INC:
-				InvalidateFlagsPartially((void*)&dynrec_inc_word_simple,t_INCw);
+				InvalidateFlagsPartially((void*)&dynrec_inc_word_simple,gen_get_cpos(),t_INCw);
 				gen_call_function_raw((void*)&dynrec_inc_word);
 				break;
 			case SOP_DEC:
-				InvalidateFlagsPartially((void*)&dynrec_dec_word_simple,t_DECw);
+				InvalidateFlagsPartially((void*)&dynrec_dec_word_simple,gen_get_cpos(),t_DECw);
 				gen_call_function_raw((void*)&dynrec_dec_word);
 				break;
 			case SOP_NOT:
 				gen_call_function_raw((void*)&dynrec_not_word);
 				break;
 			case SOP_NEG:
-				InvalidateFlags((void*)&dynrec_neg_word_simple,t_NEGw);
+				InvalidateFlags((void*)&dynrec_neg_word_simple,gen_get_cpos(),t_NEGw);
 				gen_call_function_raw((void*)&dynrec_neg_word);
 				break;
 			default: IllegalOptionDynrec("dyn_sop_word_gencall");
@@ -1113,11 +1113,11 @@ static Bit32u DRC_CALL_CONV dynrec_sar_dword_simple(Bit32u op1,Bit8u op2) {
 static void dyn_shift_byte_gencall(ShiftOps op) {
 	switch (op) {
 		case SHIFT_ROL:
-			InvalidateFlagsPartially((void*)&dynrec_rol_byte_simple,t_ROLb);
+			InvalidateFlagsPartially((void*)&dynrec_rol_byte_simple,gen_get_cpos(),t_ROLb);
 			gen_call_function_raw((void*)&dynrec_rol_byte);
 			break;
 		case SHIFT_ROR:
-			InvalidateFlagsPartially((void*)&dynrec_ror_byte_simple,t_RORb);
+			InvalidateFlagsPartially((void*)&dynrec_ror_byte_simple,gen_get_cpos(),t_RORb);
 			gen_call_function_raw((void*)&dynrec_ror_byte);
 			break;
 		case SHIFT_RCL:
@@ -1130,15 +1130,15 @@ static void dyn_shift_byte_gencall(ShiftOps op) {
 			break;
 		case SHIFT_SHL:
 		case SHIFT_SAL:
-			InvalidateFlagsPartially((void*)&dynrec_shl_byte_simple,t_SHLb);
+			InvalidateFlagsPartially((void*)&dynrec_shl_byte_simple,gen_get_cpos(),t_SHLb);
 			gen_call_function_raw((void*)&dynrec_shl_byte);
 			break;
 		case SHIFT_SHR:
-			InvalidateFlagsPartially((void*)&dynrec_shr_byte_simple,t_SHRb);
+			InvalidateFlagsPartially((void*)&dynrec_shr_byte_simple,gen_get_cpos(),t_SHRb);
 			gen_call_function_raw((void*)&dynrec_shr_byte);
 			break;
 		case SHIFT_SAR:
-			InvalidateFlagsPartially((void*)&dynrec_sar_byte_simple,t_SARb);
+			InvalidateFlagsPartially((void*)&dynrec_sar_byte_simple,gen_get_cpos(),t_SARb);
 			gen_call_function_raw((void*)&dynrec_sar_byte);
 			break;
 		default: IllegalOptionDynrec("dyn_shift_byte_gencall");
@@ -1149,11 +1149,11 @@ static void dyn_shift_word_gencall(ShiftOps op,bool dword) {
 	if (dword) {
 		switch (op) {
 			case SHIFT_ROL:
-				InvalidateFlagsPartially((void*)&dynrec_rol_dword_simple,t_ROLd);
+				InvalidateFlagsPartially((void*)&dynrec_rol_dword_simple,gen_get_cpos(),t_ROLd);
 				gen_call_function_raw((void*)&dynrec_rol_dword);
 				break;
 			case SHIFT_ROR:
-				InvalidateFlagsPartially((void*)&dynrec_ror_dword_simple,t_RORd);
+				InvalidateFlagsPartially((void*)&dynrec_ror_dword_simple,gen_get_cpos(),t_RORd);
 				gen_call_function_raw((void*)&dynrec_ror_dword);
 				break;
 			case SHIFT_RCL:
@@ -1166,15 +1166,15 @@ static void dyn_shift_word_gencall(ShiftOps op,bool dword) {
 				break;
 			case SHIFT_SHL:
 			case SHIFT_SAL:
-				InvalidateFlagsPartially((void*)&dynrec_shl_dword_simple,t_SHLd);
+				InvalidateFlagsPartially((void*)&dynrec_shl_dword_simple,gen_get_cpos(),t_SHLd);
 				gen_call_function_raw((void*)&dynrec_shl_dword);
 				break;
 			case SHIFT_SHR:
-				InvalidateFlagsPartially((void*)&dynrec_shr_dword_simple,t_SHRd);
+				InvalidateFlagsPartially((void*)&dynrec_shr_dword_simple,gen_get_cpos(),t_SHRd);
 				gen_call_function_raw((void*)&dynrec_shr_dword);
 				break;
 			case SHIFT_SAR:
-				InvalidateFlagsPartially((void*)&dynrec_sar_dword_simple,t_SARd);
+				InvalidateFlagsPartially((void*)&dynrec_sar_dword_simple,gen_get_cpos(),t_SARd);
 				gen_call_function_raw((void*)&dynrec_sar_dword);
 				break;
 			default: IllegalOptionDynrec("dyn_shift_dword_gencall");
@@ -1182,11 +1182,11 @@ static void dyn_shift_word_gencall(ShiftOps op,bool dword) {
 	} else {
 		switch (op) {
 			case SHIFT_ROL:
-				InvalidateFlagsPartially((void*)&dynrec_rol_word_simple,t_ROLw);
+				InvalidateFlagsPartially((void*)&dynrec_rol_word_simple,gen_get_cpos(),t_ROLw);
 				gen_call_function_raw((void*)&dynrec_rol_word);
 				break;
 			case SHIFT_ROR:
-				InvalidateFlagsPartially((void*)&dynrec_ror_word_simple,t_RORw);
+				InvalidateFlagsPartially((void*)&dynrec_ror_word_simple,gen_get_cpos(),t_RORw);
 				gen_call_function_raw((void*)&dynrec_ror_word);
 				break;
 			case SHIFT_RCL:
@@ -1199,15 +1199,15 @@ static void dyn_shift_word_gencall(ShiftOps op,bool dword) {
 				break;
 			case SHIFT_SHL:
 			case SHIFT_SAL:
-				InvalidateFlagsPartially((void*)&dynrec_shl_word_simple,t_SHLw);
+				InvalidateFlagsPartially((void*)&dynrec_shl_word_simple,gen_get_cpos(),t_SHLw);
 				gen_call_function_raw((void*)&dynrec_shl_word);
 				break;
 			case SHIFT_SHR:
-				InvalidateFlagsPartially((void*)&dynrec_shr_word_simple,t_SHRw);
+				InvalidateFlagsPartially((void*)&dynrec_shr_word_simple,gen_get_cpos(),t_SHRw);
 				gen_call_function_raw((void*)&dynrec_shr_word);
 				break;
 			case SHIFT_SAR:
-				InvalidateFlagsPartially((void*)&dynrec_sar_word_simple,t_SARw);
+				InvalidateFlagsPartially((void*)&dynrec_sar_word_simple,gen_get_cpos(),t_SARw);
 				gen_call_function_raw((void*)&dynrec_sar_word);
 				break;
 			default: IllegalOptionDynrec("dyn_shift_word_gencall");
@@ -1401,6 +1401,7 @@ static void DRC_CALL_CONV dynrec_imul_byte(Bit8u op) {
 		SETFLAGBIT(OF,true);
 	}
 }
+
 
 static void DRC_CALL_CONV dynrec_mul_word(Bit16u op) DRC_FC;
 static void DRC_CALL_CONV dynrec_mul_word(Bit16u op) {
@@ -1966,30 +1967,28 @@ static Bit32u DRC_CALL_CONV dynrec_stosd_dword(Bit32u count,Bit32s add_index,Phy
 }
 
 
-static void DRC_CALL_CONV dynrec_push_word(Bit16u value) DRC_FC;
-static void DRC_CALL_CONV dynrec_push_word(Bit16u value) {
-	Bit32u new_esp=(reg_esp&cpu.stack.notmask)|((reg_esp-2)&cpu.stack.mask);
+static Bit32u DRC_CALL_CONV dynrec_push_word(Bit16u value, Bit32u addr) DRC_FC;
+static Bit32u DRC_CALL_CONV dynrec_push_word(Bit16u value, Bit32u addr) {
+	Bit32u new_esp=(addr&cpu.stack.notmask)|((addr-2)&cpu.stack.mask);
 	mem_writew(SegPhys(ss) + (new_esp & cpu.stack.mask),value);
-	reg_esp=new_esp;
+	return new_esp;
 }
 
-static void DRC_CALL_CONV dynrec_push_dword(Bit32u value) DRC_FC;
-static void DRC_CALL_CONV dynrec_push_dword(Bit32u value) {
-	Bit32u new_esp=(reg_esp&cpu.stack.notmask)|((reg_esp-4)&cpu.stack.mask);
-	mem_writed(SegPhys(ss) + (new_esp & cpu.stack.mask) ,value);
-	reg_esp=new_esp;
+static Bit32u DRC_CALL_CONV dynrec_push_dword(Bit32u value, Bit32u addr) DRC_FC;
+static Bit32u DRC_CALL_CONV dynrec_push_dword(Bit32u value, Bit32u addr) {
+	Bit32u new_esp=(addr&cpu.stack.notmask)|((addr-4)&cpu.stack.mask);
+	mem_writed(SegPhys(ss) + (new_esp & cpu.stack.mask),value);
+	return new_esp;
 }
 
-static Bit16u DRC_CALL_CONV dynrec_pop_word(void) DRC_FC;
-static Bit16u DRC_CALL_CONV dynrec_pop_word(void) {
-	Bit16u val=mem_readw(SegPhys(ss) + (reg_esp & cpu.stack.mask));
-	reg_esp=(reg_esp&cpu.stack.notmask)|((reg_esp+2)&cpu.stack.mask);
-	return val;
+static Bit64u DRC_CALL_CONV dynrec_pop_word(Bit32u addr) DRC_FC;
+static Bit64u DRC_CALL_CONV dynrec_pop_word(Bit32u addr) {
+	Bit16u val=mem_readw(SegPhys(ss) + (addr & cpu.stack.mask));
+	return ((Bit64u)(addr&cpu.stack.notmask)|((addr+2)&cpu.stack.mask))<<32|val;	// ugly but fast
 }
 
-static Bit32u DRC_CALL_CONV dynrec_pop_dword(void) DRC_FC;
-static Bit32u DRC_CALL_CONV dynrec_pop_dword(void) {
-	Bit32u val=mem_readd(SegPhys(ss) + (reg_esp & cpu.stack.mask));
-	reg_esp=(reg_esp&cpu.stack.notmask)|((reg_esp+4)&cpu.stack.mask);
-	return val;
+static Bit64u DRC_CALL_CONV dynrec_pop_dword(Bit32u addr) DRC_FC;
+static Bit64u DRC_CALL_CONV dynrec_pop_dword(Bit32u addr) {
+	Bit32u val=mem_readd(SegPhys(ss) + (addr & cpu.stack.mask));
+	return ((Bit64u)(addr&cpu.stack.notmask)|((addr+4)&cpu.stack.mask))<<32|val;
 }

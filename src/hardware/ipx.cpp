@@ -852,6 +852,14 @@ void IPX_NetworkInit() {
 class IPXNET : public Program {
 public:
 	void HelpCommand(const char *helpStr) {
+#ifdef PSP
+		if(strcasecmp("startwifi", helpStr) == 0) {
+			WriteOut("IPXNET STARTWIFI connects to the access point in the \"ap\" parameter");
+			WriteOut("The syntax for IPXNET STARTWIFI is:\n\n");
+			WriteOut("IPXNET STARTWIFI ap\n\n");
+			return;
+		}
+#endif
 		// Help on connect command
 		if(strcasecmp("connect", helpStr) == 0) {
 			WriteOut("IPXNET CONNECT opens a connection to an IPX tunneling server running on another\n");
@@ -1081,6 +1089,8 @@ Bitu IPX_ESRHandler(void) {
 }
 
 void VFILE_Remove(const char *name);
+
+extern int errno;
 
 class IPX: public Module_base {
 private:

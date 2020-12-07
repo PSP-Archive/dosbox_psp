@@ -44,6 +44,8 @@ Bit16u FPU_GetTag(void){
 
 #if C_FPU_X86
 #include "fpu_instructions_x86.h"
+#elif defined(PSP)
+#include "fpu_instructions_vfpu.h"
 #else
 #include "fpu_instructions.h"
 #endif

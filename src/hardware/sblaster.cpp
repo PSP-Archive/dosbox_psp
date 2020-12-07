@@ -702,6 +702,7 @@ Bitu DEBUG_EnableDebugger(void);
 #define DSP_SB2_ABOVE if (sb.type <= SBT_1) { LOG(LOG_SB,LOG_ERROR)("DSP:Command %2X requires SB2 or above",sb.dsp.cmd); break; } 
 
 static void DSP_DoCommand(void) {
+	sb.chan->Enable(true);
 //	LOG_MSG("DSP Command %X",sb.dsp.cmd);
 	switch (sb.dsp.cmd) {
 	case 0x04:	/* DSP Status SB 2.0/pro version. NOT SB16. */
@@ -930,7 +931,7 @@ static Bit8u DSP_ReadData(void) {
 }
 
 //The soundblaster manual says 2.0 Db steps but we'll go for a bit less
-#define CALCVOL(_VAL) (float)pow(10.0f,((float)(31-_VAL)*-1.3f)/20)
+#define CALCVOL(_VAL) (float)powf(10.0f,((float)(31-_VAL)*-1.3f)/20)
 static void CTMIXER_UpdateVolumes(void) {
 	if (!sb.mixer.enabled) return;
 	MixerChannel * chan;
@@ -1273,6 +1274,7 @@ static void SBLASTER_CallBack(Bitu len) {
 	case MODE_NONE:
 	case MODE_DMA_PAUSE:
 	case MODE_DMA_MASKED:
+		sb.chan->Enable(false);
 		sb.chan->AddSilence();
 		break;
 	case MODE_DAC:
@@ -1350,6 +1352,8 @@ public:
 		sb.mixer.stereo=false;
 		OPL_Mode opl_mode = OPL_none;
 		Find_Type_And_Opl(section,sb.type,opl_mode);
+		
+		opl_mode = OPL_opl2;
 	
 		switch (opl_mode) {
 		case OPL_none:

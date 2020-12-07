@@ -343,8 +343,8 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 		/* Not handled yet. But usuable in mapper for special events */
 		return;
 	default:
-		E_Exit("Unsupported key press");
-		break;
+		LOG_MSG("Unsupported key press");
+		return;
 	}
 	/* Add the actual key in the keyboard queue */
 	if (pressed) {

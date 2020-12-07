@@ -27,6 +27,8 @@
 #include "drives.h"
 #include "dos_inc.h"
 
+#ifdef USE_ALT_KEYB
+
 #include "dos_codepages.h"
 #include "dos_keyboard_layout_data.h"
 
@@ -1048,3 +1050,8 @@ void DOS_KeyboardLayout_Init(Section* sec) {
 	sec->AddDestroyFunction(&DOS_KeyboardLayout_ShutDown,true);
 //	MAPPER_AddHandler(switch_keyboard_layout,MK_f2,MMOD1|MMOD2,"sw_layout","Switch Layout");
 }
+
+#else
+void DOS_KeyboardLayout_Init(Section* sec)  {}
+bool DOS_LayoutKey(Bitu key, Bit8u flags1, Bit8u flags2, Bit8u flags3) {return false;}
+#endif

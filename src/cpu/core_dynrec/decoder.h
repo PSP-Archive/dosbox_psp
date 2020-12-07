@@ -30,6 +30,17 @@
 	instruction is encountered.
 */
 
+#ifdef PSP
+// writeback dcache and invalidate icache
+#define FLUSH_CACHE   { Bit32u inval_start = (Bit32u)decode.block->cache.start & ~63;					\
+			Bit32u inval_end = ((decode.block->cache.size+(Bit32u)decode.block->cache.start) & ~63) + 64;	\
+			for (;inval_start < inval_end; inval_start+=64) { 						\
+				__builtin_allegrex_cache(0x1a, inval_start);						\
+				__builtin_allegrex_cache(0x08, inval_start); } }
+#else
+#define FLUSH_CACHE
+#endif
+
 static CacheBlockDynRec * CreateCacheBlock(CodePageHandlerDynRec * codepage,PhysPt start,Bitu max_opcodes) {
 	// initialize a load of variables
 	decode.code_start=start;
@@ -253,12 +264,30 @@ restart_prefix:
 			break;
 
 		case 0x60:
+			gen_save_creg(DRC_REG_EAX);		// XXX this sucks
+			gen_save_creg(DRC_REG_ECX);
+			gen_save_creg(DRC_REG_EBX);
+			gen_save_creg(DRC_REG_EDX);
+			gen_save_creg(DRC_REG_ESP);
+			gen_save_creg(DRC_REG_EBP);
+			gen_save_creg(DRC_REG_ESI);
+			gen_save_creg(DRC_REG_EDI);
 			if (decode.big_op) gen_call_function_raw((void *)&dynrec_pusha_dword);
 			else gen_call_function_raw((void *)&dynrec_pusha_word);
+			gen_reload_creg(DRC_REG_ESP);
 			break;
 		case 0x61:
+			gen_save_creg(DRC_REG_ESP);
 			if (decode.big_op) gen_call_function_raw((void *)&dynrec_popa_dword);
 			else gen_call_function_raw((void *)&dynrec_popa_word);
+			gen_reload_creg(DRC_REG_EAX);
+			gen_reload_creg(DRC_REG_ECX);
+			gen_reload_creg(DRC_REG_EBX);
+			gen_reload_creg(DRC_REG_EDX);
+			gen_reload_creg(DRC_REG_ESP);
+			gen_reload_creg(DRC_REG_EBP);
+			gen_reload_creg(DRC_REG_ESI);
+			gen_reload_creg(DRC_REG_EDI);
 			break;
 
 //		case 0x62: BOUND missing
@@ -317,7 +346,7 @@ restart_prefix:
 		case 0x8d:
 			dyn_get_modrm();
 			dyn_fill_ea(FC_ADDR,false);
-			gen_mov_word_from_reg(FC_ADDR,DRCD_REG_WORD(decode.modrm.reg,decode.big_op),decode.big_op);
+			gen_set_creg_word(FC_ADDR,decode.modrm.reg,decode.big_op);
 			break;
 
 		// move a value from memory or a 16bit register into a segment register
@@ -344,11 +373,15 @@ restart_prefix:
 
 		case 0x9c:	// pushf
 			AcquireFlags(FMASK_TEST);
+			gen_save_creg(DRC_REG_ESP);
 			gen_call_function_I((void *)&CPU_PUSHF,decode.big_op);
+			gen_reload_creg(DRC_REG_ESP);
 			dyn_check_exception(FC_RETOP);
 			break;
 		case 0x9d:	// popf
+			gen_save_creg(DRC_REG_ESP);
 			gen_call_function_I((void *)&CPU_POPF,decode.big_op);
+			gen_reload_creg(DRC_REG_ESP);
 			dyn_check_exception(FC_RETOP);
 			InvalidateFlags();
 			break;
@@ -396,7 +429,7 @@ restart_prefix:
 			dyn_mov_byte_imm(opcode&3,(opcode>>2)&1,decode_fetchb());
 			break;
 		case 0xb8:case 0xb9:case 0xba:case 0xbb:case 0xbc:case 0xbd:case 0xbe:case 0xbf:	
-			dyn_mov_word_imm(opcode&7);break;
+			dyn_mov_word_imm(opcode&7);
 			break;
 
 		// 'shiftop []/reg8,imm8/1/cl'
@@ -578,5 +611,6 @@ finish_block:
 	decode.active_block->page.end=(Bit16u)decode.page.index;
 //	LOG_MSG("Created block size %d start %d end %d",decode.block->cache.size,decode.block->page.start,decode.block->page.end);
 
+	FLUSH_CACHE;
 	return decode.block;
 }

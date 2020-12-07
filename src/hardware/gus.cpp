@@ -28,6 +28,9 @@
 #include "shell.h"
 #include "math.h"
 #include "regs.h"
+
+#ifdef USE_GUS
+
 using namespace std;
 
 //Extra bits of precision over normal gus
@@ -47,7 +50,6 @@ using namespace std;
 #define GUS_RATE myGUS.rate
 #define LOG_GUS 0
 
-Bit8u adlib_commandreg;
 static MixerChannel * gus_chan;
 static Bit8u irqtable[8] = { 0, 2, 5, 3, 7, 11, 12, 15 };
 static Bit8u dmatable[8] = { 0, 1, 3, 5, 6, 7, 0, 0 };
@@ -891,3 +893,9 @@ void GUS_Init(Section* sec) {
 	test = new GUS(sec);
 	sec->AddDestroyFunction(&GUS_ShutDown,true);
 }
+
+#else
+
+void GUS_Init(Section* src) { }
+
+#endif

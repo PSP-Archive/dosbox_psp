@@ -278,6 +278,12 @@ void DOS_Shell::RunInternal(void)
 	return;
 }
 
+#ifdef PSP
+extern const char build_version[];
+#define BUILD build_version
+#else
+#define BUILD "DOSBox v"\ VERSION
+#endif
 
 void DOS_Shell::Run(void) {
 	char input_line[CMD_MAXLINE] = {0};
@@ -292,7 +298,7 @@ void DOS_Shell::Run(void) {
 	}
 	/* Start a normal shell and check for a first command init */
 	if(machine != MCH_HERC) { //Hide it for hercules as that looks too weird
-		WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION);
+		WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),BUILD);
 #if C_DEBUG
 		WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
 #endif
@@ -470,14 +476,14 @@ void SHELL_Init() {
 		"\033[44;1m\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB\n"
-		"\xBA \033[32mWelcome to DOSBox v%-8s\033[37m                                        \xBA\n"
+		"\xBA \033[32mWelcome to %-16s\033[37m              \xBA\n"
 		"\xBA                                                                    \xBA\n"
 //		"\xBA DOSBox runs real and protected mode games.                         \xBA\n"
 		"\xBA For a short introduction for new users type: \033[33mINTRO\033[37m                 \xBA\n"
 		"\xBA For supported shell commands type: \033[33mHELP\033[37m                            \xBA\n"
 		"\xBA                                                                    \xBA\n"
-		"\xBA If you want more speed, try \033[31mctrl-F8\033[37m and \033[31mctrl-F12\033[37m.                  \xBA\n"
-		"\xBA To activate the keymapper \033[31mctrl-F1\033[37m.                                 \xBA\n"
+//		"\xBA If you want more speed, try \033[31mctrl-F8\033[37m and \033[31mctrl-F12\033[37m.                  \xBA\n"
+//		"\xBA To activate the keymapper \033[31mctrl-F1\033[37m.                                 \xBA\n"
 		"\xBA For more information read the \033[36mREADME\033[37m file in the DOSBox directory. \xBA\n"
 		"\xBA                                                                    \xBA\n"
 	);

@@ -40,7 +40,32 @@ void FPU_ESC6_EA(Bitu func,PhysPt ea);
 void FPU_ESC7_Normal(Bitu rm);
 void FPU_ESC7_EA(Bitu func,PhysPt ea);
 
+#ifdef PSP
+#define SINGLE_FLOAT
+#endif
 
+#ifdef SINGLE_FLOAT
+typedef union {
+	float d;
+	Bit32s l;
+} FPU_Reg;
+typedef Real32 FVAL;
+typedef union {
+    double d;
+#ifndef WORDS_BIGENDIAN
+    struct {
+        Bit32u lower;
+        Bit32s upper;
+    } l;
+#else
+    struct {
+        Bit32s upper;
+        Bit32u lower;
+    } l;
+#endif
+    Bit64s ll;
+} double_reg;
+#else
 typedef union {
     double d;
 #ifndef WORDS_BIGENDIAN
@@ -56,6 +81,8 @@ typedef union {
 #endif
     Bit64s ll;
 } FPU_Reg;
+typedef Real64 FVAL;
+#endif
 
 typedef struct {
     Bit32u m1;
@@ -82,7 +109,9 @@ enum FPU_Round {
 
 typedef struct {
 	FPU_Reg		regs[9];
+#ifdef SINGLE_FLOAT
 	FPU_P_Reg	p_regs[9];
+#endif
 	FPU_Tag		tags[9];
 	Bit16u		cw,cw_mask_all;
 	Bit16u		sw;
@@ -93,6 +122,7 @@ typedef struct {
 
 //get pi from a real library
 #define PI		3.14159265358979323846
+#define PI_2		1.57079632679489
 #define L2E		1.4426950408889634
 #define L2T		3.3219280948873623
 #define LN2		0.69314718055994531

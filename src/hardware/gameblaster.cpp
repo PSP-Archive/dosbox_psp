@@ -45,8 +45,8 @@ struct saa1099_channel
 	int envelope[2];		/* envelope (0x00..0x0f or 0x10 == off) */
 
 	/* vars to simulate the square wave */
-	double counter;
-	double freq;
+	float counter;
+	float freq;
 	int level;
 };
 
@@ -54,8 +54,8 @@ struct saa1099_channel
 struct saa1099_noise
 {
 	/* vars to simulate the noise generator output */
-	double counter;
-	double freq;
+	float counter;
+	float freq;
 	int level;						/* noise polynomal shifter */
 };
 
@@ -129,7 +129,7 @@ static int amplitude_lookup[16] = {
 };
 
 /* global parameters */
-static double sample_rate;
+static float sample_rate;
 static SAA1099 saa1099[2];
 static MixerChannel * cms_chan;
 static Bit16s cms_buffer[2][2][CMS_BUFFER_SIZE];
@@ -217,16 +217,16 @@ static void saa1099_update(int chip, INT16 **buffer, int length)
 		for (ch = 0; ch < 6; ch++)
 		{
             if (saa->channels[ch].freq == 0.0)
-                saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
-                    (511.0 - (double)saa->channels[ch].frequency);
+                saa->channels[ch].freq = (float)((2 * 15625) << saa->channels[ch].octave) /
+                    (511.0 - (float)saa->channels[ch].frequency);
 
             /* check the actual position in the square wave */
             saa->channels[ch].counter -= saa->channels[ch].freq;
 			while (saa->channels[ch].counter < 0)
 			{
 				/* calculate new frequency now after the half wave is updated */
-				saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
-					(511.0 - (double)saa->channels[ch].frequency);
+				saa->channels[ch].freq = (float)((2 * 15625) << saa->channels[ch].octave) /
+					(511.0 - (float)saa->channels[ch].frequency);
 
 				saa->channels[ch].counter += sample_rate;
 				saa->channels[ch].level ^= 1;
@@ -429,7 +429,7 @@ public:
 	CMS(Section* configuration):Module_base(configuration) {
 		Section_prop * section = static_cast<Section_prop *>(configuration);
 		Bitu sample_rate_temp = section->Get_int("oplrate");
-		sample_rate = static_cast<double>(sample_rate_temp);
+		sample_rate = static_cast<float>(sample_rate_temp);
 		Bitu base = section->Get_hex("sbbase");
 		WriteHandler.Install(base,write_cms,IO_MB,4);
 

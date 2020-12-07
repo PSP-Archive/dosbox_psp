@@ -27,12 +27,10 @@
 
 #define VGA_PARTS 4
 
-typedef Bit8u * (* VGA_Line_Handler)(Bitu vidstart, Bitu line);
-
 static VGA_Line_Handler VGA_DrawLine;
-static Bit8u TempLine[SCALER_MAXWIDTH * 4];
+//static Bit8u TempLine[SCALER_MAXWIDTH * 4];
 
-static Bit8u * VGA_Draw_1BPP_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_1BPP_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	Bit32u *draw = (Bit32u *)TempLine;
 	for (Bitu x=vga.draw.blocks;x>0;x--, vidstart++) {
@@ -43,7 +41,7 @@ static Bit8u * VGA_Draw_1BPP_Line(Bitu vidstart, Bitu line) {
 	return TempLine;
 }
 
-static Bit8u * VGA_Draw_2BPP_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_2BPP_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	Bit32u * draw=(Bit32u *)TempLine;
 	for (Bitu x=0;x<vga.draw.blocks;x++) {
@@ -54,7 +52,7 @@ static Bit8u * VGA_Draw_2BPP_Line(Bitu vidstart, Bitu line) {
 	return TempLine;
 }
 
-static Bit8u * VGA_Draw_2BPPHiRes_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_2BPPHiRes_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	Bit32u * draw=(Bit32u *)TempLine;
 	for (Bitu x=0;x<vga.draw.blocks;x++) {
@@ -70,7 +68,7 @@ static Bit8u * VGA_Draw_2BPPHiRes_Line(Bitu vidstart, Bitu line) {
 
 static Bitu temp[643]={0};
 
-static Bit8u * VGA_Draw_CGA16_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_CGA16_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	const Bit8u *reader = base + vidstart;
 	Bit32u * draw=(Bit32u *)TempLine;
@@ -110,7 +108,7 @@ static Bit8u * VGA_Draw_CGA16_Line(Bitu vidstart, Bitu line) {
 	return TempLine;
 }
 
-static Bit8u * VGA_Draw_4BPP_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_4BPP_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	Bit32u * draw=(Bit32u *)TempLine;
 	for (Bitu x=0;x<vga.draw.blocks;x++) {
@@ -126,7 +124,7 @@ static Bit8u * VGA_Draw_4BPP_Line(Bitu vidstart, Bitu line) {
 	return TempLine;
 }
 
-static Bit8u * VGA_Draw_4BPP_Line_Double(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_4BPP_Line_Double(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
 	Bit32u * draw=(Bit32u *)TempLine;
 	for (Bitu x=0;x<vga.draw.blocks;x++) {
@@ -141,7 +139,7 @@ static Bit8u * VGA_Draw_4BPP_Line_Double(Bitu vidstart, Bitu line) {
 }
 
 #ifdef VGA_KEEP_CHANGES
-static Bit8u * VGA_Draw_Changes_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_Changes_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	Bitu checkMask = vga.changes.checkMask;
 	Bit8u *map = vga.changes.map;
 	Bitu start = (vidstart >> VGA_CHANGE_SHIFT);
@@ -165,8 +163,9 @@ static Bit8u * VGA_Draw_Changes_Line(Bitu vidstart, Bitu line) {
 
 #endif
 
-static Bit8u * VGA_Draw_Linear_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_Linear_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	Bit8u *ret = &vga.draw.linear_base[ vidstart & vga.draw.linear_mask ];
+	memcpy(TempLine, ret, vga.draw.line_length);
 #if !defined(C_UNALIGNED_MEMORY)
 	if (GCC_UNLIKELY( ((Bitu)ret) & (sizeof(Bitu)-1)) ) {
 		memcpy( TempLine, ret, vga.draw.line_length );
@@ -177,7 +176,7 @@ static Bit8u * VGA_Draw_Linear_Line(Bitu vidstart, Bitu line) {
 }
 
 //Test version, might as well keep it
-static Bit8u * VGA_Draw_Chain_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_Chain_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	Bitu i = 0;
 	for ( i = 0; i < vga.draw.width;i++ ) {
 		Bitu addr = vidstart + i;
@@ -186,7 +185,7 @@ static Bit8u * VGA_Draw_Chain_Line(Bitu vidstart, Bitu line) {
 	return TempLine;
 }
 
-static Bit8u * VGA_Draw_VGA_Line_HWMouse( Bitu vidstart, Bitu line) {
+static Bit8u * VGA_Draw_VGA_Line_HWMouse( Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	if(vga.s3.hgc.curmode & 0x1) {
 		Bitu lineat = vidstart / vga.draw.width;
 		if((lineat < vga.s3.hgc.originy) || (lineat > (vga.s3.hgc.originy + 63U))) {
@@ -246,7 +245,7 @@ static Bit8u * VGA_Draw_VGA_Line_HWMouse( Bitu vidstart, Bitu line) {
 	}
 }
 
-static Bit8u * VGA_Draw_LIN16_Line_HWMouse(Bitu vidstart,   Bitu line) {
+static Bit8u * VGA_Draw_LIN16_Line_HWMouse(Bitu vidstart,   Bitu line, Bit8u *TempLine) {
 	if(vga.s3.hgc.curmode & 0x1) {
 		Bitu lineat = (vidstart >> 1) / vga.draw.width;
 		if((lineat < vga.s3.hgc.originy) || (lineat > (vga.s3.hgc.originy + 63U))) {
@@ -309,7 +308,7 @@ static Bit8u * VGA_Draw_LIN16_Line_HWMouse(Bitu vidstart,   Bitu line) {
 	}
 }
 
-static Bit8u * VGA_Draw_LIN32_Line_HWMouse(Bitu vidstart,   Bitu line) {
+static Bit8u * VGA_Draw_LIN32_Line_HWMouse(Bitu vidstart,   Bitu line, Bit8u *TempLine) {
 	if(vga.s3.hgc.curmode & 0x1) {
 		Bitu lineat = (vidstart >> 2) / vga.draw.width;
 		if((lineat < vga.s3.hgc.originy) || (lineat > (vga.s3.hgc.originy + 63U))) {
@@ -379,7 +378,7 @@ static Bit8u * VGA_Draw_LIN32_Line_HWMouse(Bitu vidstart,   Bitu line) {
 }
 
 static Bit32u FontMask[2]={0xffffffff,0x0};
-static Bit8u * VGA_TEXT_Draw_Line(Bitu vidstart, Bitu line) {
+static Bit8u * VGA_TEXT_Draw_Line(Bitu vidstart, Bitu line, Bit8u *TempLine) {
 	Bits font_addr;
 	Bit32u * draw=(Bit32u *)TempLine;
 	const Bit8u *vidmem = &vga.tandy.draw_base[vidstart];
@@ -436,8 +435,8 @@ static INLINE void VGA_ChangesEnd(void ) {
 
 static void VGA_DrawPart(Bitu lines) {
 	while (lines--) {
-		Bit8u * data=VGA_DrawLine( vga.draw.address, vga.draw.address_line );
-		RENDER_DrawLine(data);
+//		Bit8u * data=VGA_DrawLine( vga.draw.address, vga.draw.address_line );
+		RENDER_DrawLine(vga.draw.address, vga.draw.address_line, VGA_DrawLine);
 		vga.draw.address_line++;
 		if (vga.draw.address_line>=vga.draw.address_line_total) {
 			vga.draw.address_line=0;
@@ -508,7 +507,7 @@ static void INLINE VGA_ChangesStart( void ) {
 
 
 static void VGA_VerticalTimer(Bitu val) {
-	double error = vga.draw.delay.framestart;
+	float error = vga.draw.delay.framestart;
 	vga.draw.delay.framestart = PIC_FullIndex();
 	error = vga.draw.delay.framestart - error - vga.draw.delay.vtotal;
 //	 if (abs(error) > 0.001 ) 
@@ -763,7 +762,7 @@ void VGA_SetupDrawing(Bitu val) {
 	
 	fps=(float)clock/(vtotal*htotal);
 	// The time a complete video frame takes
-	vga.draw.delay.vtotal = (1000.0 * (double)(vtotal*htotal)) / (double)clock; 
+	vga.draw.delay.vtotal = (1000.0 * (float)(vtotal*htotal)) / (float)clock; 
 	// Horizontal total (that's how long a line takes with whistles and bells)
 	vga.draw.delay.htotal = htotal*1000.0/clock; //in milliseconds
 	// Start and End of horizontal blanking
@@ -797,44 +796,8 @@ void VGA_SetupDrawing(Bitu val) {
 		vga.draw.delay.vend);
     */
 	vga.draw.parts_total=VGA_PARTS;
-	/*
-      6  Horizontal Sync Polarity. Negative if set
-      7  Vertical Sync Polarity. Negative if set
-         Bit 6-7 indicates the number of lines on the display:
-            1:  400, 2: 350, 3: 480
-	*/
-	//Try to determine the pixel size, aspect correct is based around square pixels
-
-	//Base pixel width around 100 clocks horizontal
-	//For 9 pixel text modes this should be changed, but we don't support that anyway :)
-	//Seems regular vga only listens to the 9 char pixel mode with character mode enabled
-	double pwidth = 100.0 / htotal;
-	//Base pixel height around vertical totals of modes that have 100 clocks horizontal
-	//Different sync values gives different scaling of the whole vertical range
-	//VGA monitor just seems to thighten or widen the whole vertical range
-	double pheight;
-	Bitu sync = vga.misc_output >> 6;
-	switch ( sync ) {
-	case 0:		// This is not defined in vga specs,
-				// Kiet, seems to be slightly less than 350 on my monitor
-		//340 line mode, filled with 449 total
-		pheight = (480.0 / 340.0) * ( 449.0 / vtotal );
-		break;
-	case 1:		//400 line mode, filled with 449 total
-		pheight = (480.0 / 400.0) * ( 449.0 / vtotal );
-		break;
-	case 2:		//350 line mode, filled with 449 total
-		//This mode seems to get regular 640x400 timing and goes for a loong retrace
-		//Depends on the monitor to stretch the screen
-		pheight = (480.0 / 350.0) * ( 449.0 / vtotal );
-		break;
-	case 3:		//480 line mode, filled with 525 total
-		pheight = (480.0 / 480.0) * ( 525.0 / vtotal );
-		break;
-	}
-
-	double aspect_ratio = pheight / pwidth;
-
+	float correct_ratio=(100.0f/525.0f);
+	float aspect_ratio=((float)htotal/((float)vtotal)/correct_ratio);
 	vga.draw.delay.parts = vga.draw.delay.vdend/vga.draw.parts_total;
 	vga.draw.resizing=false;
 

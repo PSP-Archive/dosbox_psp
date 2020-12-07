@@ -21,6 +21,39 @@
 
 #include "config.h"
 
+#ifndef PSP
+#define USE_GUS 1
+#define USE_SDL 1
+#else
+//#define PSPME
+typedef struct profile_regs_ll
+{
+	unsigned long long systemck;
+	unsigned long long cpuck;
+	unsigned long long internal;
+	unsigned long long memory;
+	unsigned long long copz;
+	unsigned long long vfpu;
+	unsigned long long sleep;
+	unsigned long long bus_access;
+	unsigned long long uncached_load;
+	unsigned long long uncached_store;
+	unsigned long long cached_load;
+	unsigned long long cached_store;
+	unsigned long long i_miss;
+	unsigned long long d_miss;
+	unsigned long long d_writeback;
+	unsigned long long cop0_inst;
+	unsigned long long fpu_inst;
+	unsigned long long vfpu_inst;
+	unsigned long long local_bus;
+} profile_regs_ll;
+#endif
+
+// deal with unaligned memory
+typedef struct { Bit32u val __attribute__((packed)); } unaligned_word;
+typedef struct { Bit16u val __attribute__((packed)); } unaligned_half;
+
 void E_Exit(const char * message,...) GCC_ATTRIBUTE( __format__(__printf__, 1, 2));
 
 void MSG_Add(const char*,const char*); //add messages to the internal langaugefile

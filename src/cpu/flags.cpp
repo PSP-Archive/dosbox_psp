@@ -26,7 +26,7 @@
 #include "lazyflags.h"
 #include "pic.h"
 
-LazyFlags lflags;
+extern LazyFlags lflags;
 
 /* CF     Carry Flag -- Set on high-order bit carry or borrow; cleared
           otherwise.

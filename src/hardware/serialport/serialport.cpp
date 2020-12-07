@@ -1084,7 +1084,7 @@ CSerial::~CSerial(void) {
 };
 bool CSerial::Getchar(Bit8u* data, bool wait_dsr, Bitu timeout) {
 	
-	double starttime=PIC_FullIndex();
+	float starttime=PIC_FullIndex();
 	// wait for it to become empty
 	// wait for DSR on
 	if(wait_dsr) {
@@ -1124,7 +1124,7 @@ if(dbg_aux)
 
 bool CSerial::Putchar(Bit8u data, bool wait_dsr, bool wait_cts, Bitu timeout) {
 	
-	double starttime=PIC_FullIndex();
+	float starttime=PIC_FullIndex();
 	//Bit16u starttime=
 	// wait for it to become empty
 	while(!(LSR&0x20)) {

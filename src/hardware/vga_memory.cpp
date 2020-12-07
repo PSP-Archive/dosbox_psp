@@ -57,6 +57,8 @@ static INLINE Bitu  hostRead(HostPt off ) {
 
 
 void VGA_MapMMIO(void);
+
+#ifndef PSP
 //Nice one from DosEmu
 INLINE static Bit32u RasterOp(Bit32u input,Bit32u mask) {
 	switch (vga.config.raster_op) {
@@ -101,6 +103,103 @@ INLINE static Bit32u ModeOperation(Bit8u val) {
 	}
 	return full;
 }
+#else
+
+#define SetResetFill(val, out)					\
+      { Bit32u temp, tempa;					\
+	__asm__ ( "li   %1, 0xff\n"				\
+		  "andi %2, %3, 1\n"				\
+		  "movz %1, $0, %2\n"				\
+		  "move %0, %1\n"				\
+		  "li   %1, 0xff00\n"				\
+		  "andi %2, %3, 2\n"				\
+		  "movz %1, $0, %2\n"				\
+		  "or   %0, %0, %1\n"				\
+  		  "lui  %1, 0xff\n"				\
+		  "andi %2, %3, 4\n"				\
+		  "movz %1, $0, %2\n"				\
+		  "or   %0, %0, %1\n"				\
+		  "lui  %1, 0xff00\n"				\
+		  "andi %2, %3, 8\n"				\
+		  "movz %1, $0, %2\n"				\
+		  "or   %0, %0, %1\n"				\
+		:"=r"(out),"=r"(temp),"=r"(tempa):"r"(val)); }
+
+INLINE static Bit32u ModeOperation(Bit8u val) {
+	static Bit8u last_val;
+	static Bit32u last_input;
+	Bit32u input = 0, mask = vga.config.full_bit_mask;
+
+	switch(vga.config.write_mode) {
+// Write Mode 1: In this mode, data is transferred directly from the 32 bit latch register to display memory,
+// affected only by the Memory Plane Write Enable field. The host data is not used in this mode. 
+	case 1:
+		return vga.latch.d;
+// Write Mode 2: In this mode, the bits 3-0 of the host data are replicated across all 8 bits of their
+// respective planes. Then the selected Logical Operation is performed on the resulting data and the data
+// in the latch register. Then the Bit Mask field is used to select which bits come from the resulting
+// data and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane
+// Write Enable field are written to memory.
+	case 2:
+		SetResetFill(val, input);
+		break;
+// Write Mode 0: In this mode, the host data is first rotated as per the Rotate Count field, then the
+// Enable Set/Reset mechanism selects data from this or the Set/Reset field. Then the selected Logical
+// Operation is performed on the resulting data and the data in the latch register. Then the Bit Mask
+// field is used to select which bits come from the resulting data and which come from the latch register.
+// Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory.
+	case 0:
+		if((val == last_val) && !vga.force_update) {
+			input = last_input;
+			break;
+		}
+// Write Mode 3: In this mode, the data in the Set/Reset field is used as if the Enable Set/Reset field were
+// set to 1111b. Then the host data is first rotated as per the Rotate Count field, then logical ANDed with
+// the value of the Bit Mask field. The resulting value is used on the data obtained from the Set/Reset field
+// in the same way that the Bit Mask field would ordinarily be used. to select which bits come from the
+// expansion of the Set/Reset field and which come from the latch register. Finally, only the bit planes
+// enabled by the Memory Plane Write Enable field are written to memory.
+	case 3:
+		Bit8u mode = vga.config.write_mode >> 1;
+		Bit32u input0, input3, mask3, expand;
+
+		vga.force_update = 0;
+		val = (val >> vga.config.data_rotate) | (val << (8-vga.config.data_rotate));
+		__asm__ ( "move %0, %1\n"
+			  "ins  %0, %1, 8, 8\n"
+			  "ins  %0, %1, 16, 8\n"
+			  "ins  %0, %1, 24, 8\n"
+			:"=r"(expand):"r"(val));
+//		expand = val | (val<<8) | (val<<16) | (val<<24);
+		mask3 = expand & mask;
+		input0 = (expand & vga.config.full_not_enable_set_reset) | vga.config.full_enable_and_set_reset; 
+		input3 = vga.config.full_set_reset;
+		__asm__ ( "movz  %0, %4, %3\n"
+			  "addiu %2, %3, -1\n"
+			  "movz  %0, %5, %2\n"
+			  "movz  %1, %6, %2\n"
+			:"=r"(input),"=r"(mask),"=r"(mode):"2"(mode),"r"(input0),"r"(input3),"r"(mask3),"1"(mask));
+		last_input = input;
+		last_val = val;
+		break;
+	}
+	if((mask == -1) && !vga.config.raster_op) return input;
+
+	Bit32u a = (input & mask) | (vga.latch.d & ~mask);
+	Bit32u b = (input | ~mask) & vga.latch.d;
+	Bit32u c = (input & mask) | vga.latch.d;
+	Bit32u d = (input & mask) ^ vga.latch.d;
+	Bit32u ret, temp;
+	__asm__ ( "move  %0, %6\n"
+		  "sltiu %1, %2, 3\n"
+		  "movn  %0, %5, %1\n"
+		  "sltiu %1, %2, 2\n"
+		  "movn  %0, %4, %1\n"
+		  "movz  %0, %3, %2\n"
+		:"=r"(ret),"=r"(temp):"r"(vga.config.raster_op),"r"(a),"r"(b),"r"(c),"r"(d) );
+	return ret;
+}
+#endif
 
 /* Gonna assume that whoever maps vga memory, maps it on 32/64kb boundary */
 
@@ -122,7 +221,14 @@ public:
 			return (vga.latch.b[vga.config.read_map_select]);
 		case 1:
 			VGA_Latch templatch;
+#ifdef PSP
+			Bit32u dont_care, compare;
+			SetResetFill(vga.config.color_dont_care, dont_care);
+			SetResetFill(vga.config.color_compare & vga.config.color_dont_care, compare);
+			templatch.d=(vga.latch.d & dont_care) ^ compare;
+#else
 			templatch.d=(vga.latch.d &	FillTable[vga.config.color_dont_care]) ^ FillTable[vga.config.color_compare & vga.config.color_dont_care];
+#endif
 			return (Bit8u)~(templatch.b[0] | templatch.b[1] | templatch.b[2] | templatch.b[3]);
 		}
 		return 0;
@@ -251,8 +357,8 @@ public:
 			Expand16Table[3][temp.b[3]];
 		*(Bit32u *)(write_pixels+4)=colors4_7;
 		if (wrapping && GCC_UNLIKELY( start < 512)) {
-			*(Bit32u *)(write_pixels+512*1024)=colors0_3;
-			*(Bit32u *)(write_pixels+512*1024+4)=colors4_7;
+			*(Bit32u *)(write_pixels+384*1024)=colors0_3;
+			*(Bit32u *)(write_pixels+384*1024+4)=colors4_7;
 		}
 	}
 public:	

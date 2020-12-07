@@ -26,9 +26,11 @@
 #include <unistd.h>
 #include <dirent.h>
 #include "dosbox.h"
-#include "SDL.h"
 #include "support.h"
 #include "cdrom.h"
+
+#ifdef USE_SDL
+#include "SDL.h"
 
 CDROM_Interface_SDL::CDROM_Interface_SDL(void) 
 {
@@ -155,6 +157,8 @@ bool CDROM_Interface_SDL::LoadUnloadMedia(bool unload)
 	return success;
 };	
 
+#endif
+
 int CDROM_GetMountType(char* path, int forceCD)
 // 0 - physical CDROM
 // 1 - Iso file
@@ -170,6 +174,7 @@ int CDROM_GetMountType(char* path, int forceCD)
 	upcase(buffer);
 #endif
 
+#ifdef USE_SDL
 	int num = SDL_CDNumDrives();
 	// If cd drive is forced then check if its in range and return 0
 	if ((forceCD>=0) && (forceCD<num)) {
@@ -182,7 +187,7 @@ int CDROM_GetMountType(char* path, int forceCD)
 		cdName = SDL_CDName(i);
 		if (strcmp(buffer,cdName)==0) return 0;
 	};
-	
+#endif
 	// Detect ISO
 	struct stat file_stat;
 	if ((stat(path, &file_stat) == 0) && S_ISREG(file_stat.st_mode)) return 1; 

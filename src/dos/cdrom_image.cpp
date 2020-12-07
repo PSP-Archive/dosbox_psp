@@ -90,7 +90,7 @@ bool CDROM_Interface_Image::AudioFile::read(Bit8u *buffer, int seek, int count)
 		if (!success) return false;
 	}
 	if (lastSeek != (seek - count)) {
-		int success = Sound_Seek(sample, (int)((double)(seek) / 176.4f));
+		int success = Sound_Seek(sample, (int)((float)(seek) / 176.4f));
 		if (!success) return false;
 	}
 	lastSeek = seek;
@@ -114,7 +114,7 @@ int CDROM_Interface_Image::AudioFile::getLength()
 	while (true) {
 		int success = Sound_Seek(sample, (unsigned int)(shift + time));
 		if (!success) {
-			if (time == 1) return lround((double)shift * 176.4f);
+			if (time == 1) return lround((float)shift * 176.4f);
 			shift += time >> 1;
 			time = 1;
 		} else {
@@ -136,11 +136,13 @@ CDROM_Interface_Image::CDROM_Interface_Image(Bit8u subUnit)
 {
 	images[subUnit] = this;
 	if (refCount == 0) {
+#ifdef USE_SDL
 		player.mutex = SDL_CreateMutex();
 		if (!player.channel) {
 			player.channel = MIXER_AddChannel(&CDAudioCallBack, 44100, "CDAUDIO");
 		}
 		player.channel->Enable(true);
+#endif
 	}
 	refCount++;
 }
@@ -151,8 +153,10 @@ CDROM_Interface_Image::~CDROM_Interface_Image()
 	if (player.cd == this) player.cd = NULL;
 	ClearTracks();
 	if (refCount == 0) {
+#ifdef USE_SDL
 		SDL_DestroyMutex(player.mutex);
 		player.channel->Enable(false);
+#endif
 	}
 }
 
@@ -207,8 +211,7 @@ bool CDROM_Interface_Image::GetAudioSub(unsigned char& attr, unsigned char& trac
 	return true;
 }
 
-bool CDROM_Interface_Image::GetAudioStatus(bool& playing, bool& pause)
-{
+bool CDROM_Interface_Image::GetAudioStatus(bool& playing, bool& pause) {
 	playing = player.isPlaying;
 	pause = player.isPaused;
 	return true;
@@ -224,6 +227,7 @@ bool CDROM_Interface_Image::GetMediaTrayStatus(bool& mediaPresent, bool& mediaCh
 
 bool CDROM_Interface_Image::PlayAudioSector(unsigned long start,unsigned long len)
 {
+#ifdef USE_SDL // TODO: repair
 	SDL_mutexP(player.mutex);
 	player.cd = this;
 	player.currFrame = start;
@@ -231,6 +235,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start,unsigned long le
 	player.isPlaying = true;
 	player.isPaused = false;
 	SDL_mutexV(player.mutex);
+#endif
 	return true;
 }
 
@@ -300,6 +305,7 @@ bool CDROM_Interface_Image::ReadSector(Bit8u *buffer, bool raw, unsigned long se
 
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
+#ifdef USE_SDL
 	len *= 4;       // 16 bit, stereo
 	if (!len) return;
 	if (!player.isPlaying || player.isPaused) {
@@ -327,6 +333,7 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 	player.channel->AddSamples_s16(len/4,(Bit16s *)player.buffer);
 	memmove(player.buffer, &player.buffer[len], player.bufLen - len);
 	player.bufLen -= len;
+#endif
 }
 
 bool CDROM_Interface_Image::LoadIsoFile(char* filename)
@@ -384,7 +391,7 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file, int sectorSize, bool mod
 	return (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1);
 }
 
-#if defined(WIN32)
+#if defined(WIN32) || defined(PSP)
 static string dirname(char * file) {
 	char * sep = strrchr(file, '\\');
 	if (sep == NULL)

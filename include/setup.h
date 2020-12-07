@@ -82,7 +82,7 @@ public:
         void GetValuestring(char* str) const;
 	~Prop_int(){ }
 };
-class Prop_float:public Property {
+/*class Prop_float:public Property {
 public:
 	Prop_float(char const * const _propname, float _value):Property(_propname){
 		value._float=_value;
@@ -91,7 +91,7 @@ public:
 	void GetValuestring(char* str) const;
 	~Prop_float(){ }
 };
-
+*/
 class Prop_bool:public Property {
 public:
 	Prop_bool(char const * const _propname, bool _value):Property(_propname) { 
@@ -166,13 +166,13 @@ public:
 	void Add_string(char const * const _propname, char const * const _value=NULL);
 	void Add_bool(char const * const _propname, bool _value=false);
 	void Add_hex(char const * const _propname, int _value=0);
-	void Add_float(char const * const _propname, float _value=0.0);   
+//	void Add_float(char const * const _propname, float _value=0.0);   
 
 	int Get_int(char const * const _propname) const;
 	const char* Get_string(char const * const _propname) const;
 	bool Get_bool(char const * const _propname) const;
 	int Get_hex(char const * const _propname) const;
-	float Get_float(char const * const _propname) const;
+//	float Get_float(char const * const _propname) const;
 	void HandleInputline(char *gegevens);
 	void PrintData(FILE* outfile) const;
 	virtual char const * GetPropValue(char const * const _property) const;

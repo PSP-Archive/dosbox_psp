@@ -18,6 +18,7 @@
 
 /* $Id: bios_disk.cpp,v 1.37 2007-07-14 16:42:38 c2woody Exp $ */
 
+#include <malloc.h>
 #include "dosbox.h"
 #include "callback.h"
 #include "bios.h"
@@ -149,8 +150,14 @@ Bit8u imageDisk::Read_AbsoluteSector(Bit32u sectnum, void * data) {
 
 	bytenum = sectnum * sector_size;
 
-	fseek(diskimg,bytenum,SEEK_SET);
-	fread(data, 1, sector_size, diskimg);
+	//LOG_MSG("Reading sectors to %ld at bytenum %d", sectnum, bytenum);
+
+	if(last_sect != sectnum) {	// sectors are frequently overread
+		lseek(diskimg,bytenum,SEEK_SET);
+		read(diskimg, tempbuf, sector_size);
+		last_sect = sectnum;
+	}
+	memcpy(data, tempbuf, sector_size);
 
 	return 0x00;
 }
@@ -169,17 +176,19 @@ Bit8u imageDisk::Write_AbsoluteSector(Bit32u sectnum, void *data) {
 	Bit32u bytenum;
 
 	bytenum = sectnum * sector_size;
+	last_sect = sectnum;
 
 	//LOG_MSG("Writing sectors to %ld at bytenum %d", sectnum, bytenum);
 
-	fseek(diskimg,bytenum,SEEK_SET);
-	size_t ret=fwrite(data, sector_size, 1, diskimg);
+	lseek(diskimg,bytenum,SEEK_SET);
+	memcpy(tempbuf, data, sector_size);
+	size_t ret=write(diskimg, tempbuf, sector_size);
 
 	return ((ret>0)?0x00:0x05);
 
 }
 
-imageDisk::imageDisk(FILE *imgFile, Bit8u *imgName, Bit32u imgSizeK, bool isHardDisk) {
+imageDisk::imageDisk(int imgFile, Bit8u *imgName, Bit32u imgSizeK, bool isHardDisk) {
 	heads = 0;
 	cylinders = 0;
 	sectors = 0;
@@ -228,6 +237,8 @@ imageDisk::imageDisk(FILE *imgFile, Bit8u *imgName, Bit32u imgSizeK, bool isHard
 			CMOS_SetRegister(0x14, (Bit8u)(equipment&0xff));
 		}
 	}
+	tempbuf = (Bit8u *)memalign(64, sector_size);
+	last_sect = -1;
 }
 
 void imageDisk::Set_Geometry(Bit32u setHeads, Bit32u setCyl, Bit32u setSect, Bit32u setSectSize) {

@@ -169,9 +169,9 @@ increaseticks:
 					Bit32s new_cmax = CPU_CycleMax;
 					Bit64s cproc = (Bit64s)CPU_CycleMax * (Bit64s)ticksScheduled;
 					if(cproc > 0) {
-						double ratioremoved = (double) CPU_IODelayRemoved / (double) cproc;
+						float ratioremoved = (float) CPU_IODelayRemoved / (float) cproc;
 						if(ratioremoved < 1.0) {
-							ratio = (Bits)((double)ratio * (1 - ratioremoved));
+							ratio = (Bits)((float)ratio * (1 - ratioremoved));
 							if (ratio <= 1024) 
 								new_cmax = (CPU_CycleMax * ratio) / 1024;
 							else 
@@ -196,7 +196,9 @@ increaseticks:
 			}
 		} else {
 			ticksAdded = 0;
+#ifdef USE_SDL
 			SDL_Delay(1);
+#endif
 			ticksDone -= GetTicks() - ticksNew;
 			if (ticksDone < 0)
 				ticksDone = 0;
@@ -252,7 +254,6 @@ static void DOSBOX_RealInit(Section * sec) {
 	        "# This is the configurationfile for DOSBox %s.\n"
 	        "# Lines starting with a # are commentlines.\n"
 	        "# They are used to (briefly) document the effect of each option.\n");
-
 	MAPPER_AddHandler(DOSBOX_UnlockSpeed, MK_f12, MMOD2,"speedlock","Speedlock");
 	svgaCard = SVGA_S3Trio; 
 	machine=MCH_VGA;
@@ -308,6 +309,7 @@ void DOSBOX_Init(void) {
 	secprop->Add_int("frameskip",0);
 	secprop->Add_bool("aspect",false);
 	secprop->Add_string("scaler","normal2x");
+	secprop->Add_bool("invert",false);
 	MSG_Add("RENDER_CONFIGFILE_HELP",
 		"frameskip -- How many frames DOSBox skips before drawing one.\n"
 		"aspect -- Do aspect correction, if your output method doesn't support scaling this can slow things down!.\n"
@@ -400,8 +402,6 @@ void DOSBOX_Init(void) {
 		"           On auto the mode is determined by sblaster type.\n"
 		"           All OPL modes are 'Adlib', except for CMS.\n"
 		"oplrate -- Sample rate of OPL music emulation.\n"
-	);
-
 	secprop=control->AddSection_prop("gus",&GUS_Init,true); //done
 	secprop->Add_bool("gus",true); 	
 	secprop->Add_int("gusrate",22050);
@@ -422,7 +422,6 @@ void DOSBOX_Init(void) {
 		"            the patch files for GUS playback.  Patch sets used\n"
 		"            with Timidity should work fine.\n"
 	);
-
 	secprop=control->AddSection_prop("speaker",&PCSPEAKER_Init,true);//done
 	secprop->Add_bool("pcspeaker",true);
 	secprop->Add_int("pcrate",22050);

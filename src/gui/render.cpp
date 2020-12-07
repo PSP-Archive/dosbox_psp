@@ -18,6 +18,10 @@
 
 /* $Id: render.cpp,v 1.55 2007-08-11 12:19:00 qbix79 Exp $ */
 
+#ifdef PSP
+#include "renderpsp.h"
+#else
+
 #include <sys/types.h>
 #include <dirent.h>
 #include <assert.h>
@@ -633,4 +637,4 @@ void RENDER_Init(Section * sec) {
 	MAPPER_AddHandler(IncreaseFrameSkip,MK_f8,MMOD1,"incfskip","Inc Fskip");
 	GFX_SetTitle(-1,render.frameskip.max,false);
 }
-
+#endif

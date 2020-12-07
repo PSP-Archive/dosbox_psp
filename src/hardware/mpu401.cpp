@@ -26,6 +26,8 @@
 #include "cpu.h"
 #include "support.h"
 
+#ifdef USE_MIDI
+
 void MIDI_RawOutByte(Bit8u data);
 bool MIDI_Available(void);
 
@@ -635,3 +637,9 @@ void MPU401_Init(Section* sec) {
 	test = new MPU401(sec);
 	sec->AddDestroyFunction(&MPU401_Destroy,true);
 }
+
+#else
+
+void MPU401_Init(Section* src) { }
+
+#endif

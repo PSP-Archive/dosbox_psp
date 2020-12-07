@@ -31,7 +31,11 @@ enum OPL_Mode {
 #define CAPTURE_IMAGE	0x08
 #define CAPTURE_VIDEO	0x10
 
+#ifdef CAPTURE
 extern Bitu CaptureState;
+#else
+#define CaptureState 0
+#endif
 
 void OPL_Init(Section* sec,OPL_Mode mode);
 void CMS_Init(Section* sec);

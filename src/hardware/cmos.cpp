@@ -38,9 +38,9 @@ static struct {
 		bool acknowledged;
 	} timer;
 	struct {
-		double timer;
-		double ended;
-		double alarm;
+		float timer;
+		float ended;
+		float alarm;
 	} last;
 	bool update_ended;
 } cmos;
@@ -168,7 +168,7 @@ static Bitu cmos_readreg(Bitu port,Bitu iolen) {
 		} else {
 			/* Give correct values at certain times */
 			Bit8u val=0;
-			double index=PIC_FullIndex();
+			float index=PIC_FullIndex();
 			if (index>=(cmos.last.timer+cmos.timer.delay)) {
 				cmos.last.timer=index;
 				val|=0x40;

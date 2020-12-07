@@ -32,12 +32,16 @@ static Bitu read_p3ce(Bitu port,Bitu iolen) {
 }
 
 static void write_p3cf(Bitu port,Bitu val,Bitu iolen) {
-	switch (gfx(index)) {
-	case 0:	/* Set/Reset Register */
+	Bit32u old;
+	switch (gfx(index))
+	case 0:	{ /* Set/Reset Register */
 		gfx(set_reset)=val & 0x0f;
 		vga.config.full_set_reset=FillTable[val & 0x0f];
+		old = vga.config.full_enable_and_set_reset;
 		vga.config.full_enable_and_set_reset=vga.config.full_set_reset &
 			vga.config.full_enable_set_reset;
+		vga.force_update &= 0xfd;
+		vga.force_update |= (old!=vga.config.full_enable_and_set_reset)<<1;
 		/*
 			0	If in Write Mode 0 and bit 0 of 3CEh index 1 is set a write to
 				display memory will set all the bits in plane 0 of the byte to this
@@ -52,9 +56,13 @@ static void write_p3cf(Bitu port,Bitu val,Bitu iolen) {
 	case 1: /* Enable Set/Reset Register */
 		gfx(enable_set_reset)=val & 0x0f;
 		vga.config.full_enable_set_reset=FillTable[val & 0x0f];
+		vga.force_update &= 0xfe;
+		vga.force_update |= (vga.config.full_not_enable_set_reset!=~vga.config.full_enable_set_reset);
 		vga.config.full_not_enable_set_reset=~vga.config.full_enable_set_reset;
+		old = vga.config.full_enable_and_set_reset;
 		vga.config.full_enable_and_set_reset=vga.config.full_set_reset &
 			vga.config.full_enable_set_reset;
+		vga.force_update |= (old!=vga.config.full_enable_and_set_reset);
 //		if (gfx(enable_set_reset)) vga.config.mh_mask|=MH_SETRESET else vga.config.mh_mask&=~MH_SETRESET;
 		break;
 	case 2: /* Color Compare Register */
@@ -70,6 +78,8 @@ static void write_p3cf(Bitu port,Bitu val,Bitu iolen) {
 		break;
 	case 3: /* Data Rotate */
 		gfx(data_rotate)=val;
+		vga.force_update &= 0xfb;
+		vga.force_update |= (vga.config.data_rotate!=(val & 7))<<2;
 		vga.config.data_rotate=val & 7;
 //		if (val) vga.config.mh_mask|=MH_ROTATEOP else vga.config.mh_mask&=~MH_ROTATEOP;
 		vga.config.raster_op=(val>>3) & 3;

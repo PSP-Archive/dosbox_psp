@@ -28,6 +28,7 @@
 #include "inout.h"
 #include "int10.h"
 #include "dos_inc.h"
+#include "vga.h"
 
 static struct {
 	Bitu setwindow;
@@ -115,7 +116,7 @@ Bit8u VESA_GetSVGAInformation(Bit16u seg,Bit16u off) {
 	}
 	mem_writed(buffer+0x0a,0x0);					//Capabilities and flags
 	mem_writed(buffer+0x0e,int10.rom.vesa_modes);	//VESA Mode list
-	mem_writew(buffer+0x12,32);						//32 64kb blocks for 2 mb memory
+	mem_writew(buffer+0x12,VGA_MEMORY/65536);				//32 64kb blocks for 2 mb memory
 	return 0x00;
 }
 
@@ -147,7 +148,7 @@ foundit:
 	case M_LIN8:
 		pageSize = mblock->sheight * mblock->swidth;
 		pageSize = (pageSize | 15) & ~ 15;
-		var_write(&minfo.NumberOfImagePages,(2*1024*1024 / pageSize)-1);
+		var_write(&minfo.NumberOfImagePages,(VGA_MEMORY / pageSize)-1);
 		var_write(&minfo.BytesPerScanLine,mblock->swidth);
 		var_write(&minfo.BitsPerPixel,8);
 		var_write(&minfo.MemoryModel,4);		//packed pixel
@@ -156,7 +157,7 @@ foundit:
 	case M_LIN15:
 		pageSize = mblock->sheight * mblock->swidth*2;
 		pageSize = (pageSize | 15) & ~ 15;
-		var_write(&minfo.NumberOfImagePages,(2*1024*1024 / pageSize)-1);
+		var_write(&minfo.NumberOfImagePages,(VGA_MEMORY / pageSize)-1);
 		var_write(&minfo.BytesPerScanLine,mblock->swidth*2);
 		var_write(&minfo.BitsPerPixel,15);
 		var_write(&minfo.MemoryModel,6);	//HiColour
@@ -171,7 +172,7 @@ foundit:
 	case M_LIN16:
 		pageSize = mblock->sheight * mblock->swidth*2;
 		pageSize = (pageSize | 15) & ~ 15;
-		var_write(&minfo.NumberOfImagePages,(2*1024*1024 / pageSize)-1);
+		var_write(&minfo.NumberOfImagePages,(VGA_MEMORY / pageSize)-1);
 		var_write(&minfo.BytesPerScanLine,mblock->swidth*2);
 		var_write(&minfo.BitsPerPixel,16);
 		var_write(&minfo.MemoryModel,6);	//HiColour
@@ -186,7 +187,7 @@ foundit:
 	case M_LIN32:
 		pageSize = mblock->sheight * mblock->swidth*4;
 		pageSize = (pageSize | 15) & ~ 15;
-		var_write(&minfo.NumberOfImagePages,(2*1024*1024 / pageSize)-1);
+		var_write(&minfo.NumberOfImagePages,(VGA_MEMORY / pageSize)-1);
 		var_write(&minfo.BytesPerScanLine,mblock->swidth*4);
 		var_write(&minfo.BitsPerPixel,32);
 		var_write(&minfo.MemoryModel,6);	//HiColour
@@ -317,7 +318,7 @@ Bit8u VESA_ScanLineLength(Bit8u subcall,Bit16u val, Bit16u & bytes,Bit16u & pixe
 	case 0x03:	/* Get maximum */
 		bytes=0x400*4;
 		pixels=bytes/bpp;
-		lines = 2*1024*1024 / bytes;
+		lines = VGA_MEMORY / bytes;
 		return 0x00;
 	case 0x01:	/* Get lengths */
 		break;
@@ -332,7 +333,7 @@ Bit8u VESA_ScanLineLength(Bit8u subcall,Bit16u val, Bit16u & bytes,Bit16u & pixe
 	}
 	pixels=(vga.config.scan_len*8)/bpp;
 	bytes=vga.config.scan_len*8;
-	lines = 2*1024*1024 / bytes;
+	lines = VGA_MEMORY / bytes;
 	VGA_StartResize();
 	return 0x0;
 }

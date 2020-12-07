@@ -134,7 +134,7 @@ static bool MakeCodePage(Bitu lin_addr,CodePageHandlerDynRec * &cph) {
 
 	Bitu lin_page=lin_addr >> 12;
 
-	PageHandler * handler=paging.tlb.handler[lin_page];
+	PageHandler * handler=get_tlb_entry(lin_addr)->handler;
 	if (handler->flags & PFLAG_HASCODE) {
 		// this is a codepage handler, and the one that we're looking for
 		cph=(CodePageHandlerDynRec *)handler;
@@ -219,7 +219,7 @@ static Bit16u decode_fetchw(void) {
 		val|=decode_fetchb() << 8;
 		return val;
 	}
-	*(Bit16u *)&decode.page.wmap[decode.page.index]+=0x0101;
+	((unaligned_half *)&decode.page.wmap[decode.page.index])->val+=0x0101;
 	decode.code+=2;decode.page.index+=2;
 	return mem_readw(decode.code-2);
 }
@@ -233,7 +233,7 @@ static Bit32u decode_fetchd(void) {
 		return val;
         /* Advance to the next page */
 	}
-	*(Bit32u *)&decode.page.wmap[decode.page.index]+=0x01010101;
+	((unaligned_word *)&decode.page.wmap[decode.page.index])->val+=0x01010101;
 	decode.code+=4;decode.page.index+=4;
 	return mem_readd(decode.code-4);
 }
@@ -269,8 +269,8 @@ static void INLINE decode_increase_wmapmask(Bitu size) {
 	// update mask entries
 	switch (size) {
 		case 1 : activecb->cache.wmapmask[mapidx]+=0x01; break;
-		case 2 : (*(Bit16u*)&activecb->cache.wmapmask[mapidx])+=0x0101; break;
-		case 4 : (*(Bit32u*)&activecb->cache.wmapmask[mapidx])+=0x01010101; break;
+		case 2 : ((unaligned_half *)&activecb->cache.wmapmask[mapidx])->val+=0x0101; break;
+		case 4 : ((unaligned_word *)&activecb->cache.wmapmask[mapidx])->val+=0x01010101; break;
 	}
 }
 
@@ -281,9 +281,10 @@ static bool decode_fetchb_imm(Bitu & val) {
 		decode_advancepage();
 	}
 	Bitu index=(decode.code>>12);
+	tlb_entry *entry = get_tlb_entry(decode.code);
 	// see if position is directly accessible
-	if (paging.tlb.read[index]) {
-		val=(Bitu)(paging.tlb.read[index]+decode.code);
+	if (entry->read) {
+		val=(Bitu)(entry->read+decode.code);
 		decode_increase_wmapmask(1);
 		decode.code++;
 		decode.page.index++;
@@ -299,9 +300,10 @@ static bool decode_fetchb_imm(Bitu & val) {
 static bool decode_fetchw_imm(Bitu & val) {
 	if (decode.page.index<4095) {
 		Bitu index=(decode.code>>12);
+		tlb_entry *entry = get_tlb_entry(decode.code);
 		// see if position is directly accessible
-		if (paging.tlb.read[index]) {
-			val=(Bitu)(paging.tlb.read[index]+decode.code);
+		if (entry->read) {
+			val=(Bitu)(entry->read+decode.code);
 			decode_increase_wmapmask(2);
 			decode.code+=2;
 			decode.page.index+=2;
@@ -318,9 +320,10 @@ static bool decode_fetchw_imm(Bitu & val) {
 static bool decode_fetchd_imm(Bitu & val) {
 	if (decode.page.index<4093) {
 		Bitu index=(decode.code>>12);
+		tlb_entry *entry = get_tlb_entry(decode.code);
 		// see if position is directly accessible
-		if (paging.tlb.read[index]) {
-			val=(Bitu)(paging.tlb.read[index]+decode.code);
+		if (entry->read) {
+			val=(Bitu)(entry->read+decode.code);
 			decode_increase_wmapmask(4);
 			decode.code+=4;
 			decode.page.index+=4;
@@ -383,67 +386,67 @@ static INLINE void dyn_set_eip_end(HostReg reg,Bit32u imm=0) {
 // R=host register; I=32bit immediate value; A=address value; m=memory
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_R(void * func,Bitu op) {
-	gen_load_param_reg(op,0);
+	gen_load_param_reg(op,0, true);
 	return gen_call_function_setup(func, 1);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_R3(void * func,Bitu op) {
-	gen_load_param_reg(op,2);
+	gen_load_param_reg(op,2,true);	
 	return gen_call_function_setup(func, 3, true);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_RI(void * func,Bitu op1,Bitu op2) {
 	gen_load_param_imm(op2,1);
-	gen_load_param_reg(op1,0);
+	gen_load_param_reg(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_RA(void * func,Bitu op1,DRC_PTR_SIZE_IM op2) {
 	gen_load_param_addr(op2,1);
-	gen_load_param_reg(op1,0);
+	gen_load_param_reg(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_RR(void * func,Bitu op1,Bitu op2) {
 	gen_load_param_reg(op2,1);
-	gen_load_param_reg(op1,0);
+	gen_load_param_reg(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_IR(void * func,Bitu op1,Bitu op2) {
 	gen_load_param_reg(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_I(void * func,Bitu op) {
-	gen_load_param_imm(op,0);
+	gen_load_param_imm(op,0,true);
 	return gen_call_function_setup(func, 1);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_II(void * func,Bitu op1,Bitu op2) {
 	gen_load_param_imm(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_III(void * func,Bitu op1,Bitu op2,Bitu op3) {
 	gen_load_param_imm(op3,2);
 	gen_load_param_imm(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 3);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_IA(void * func,Bitu op1,DRC_PTR_SIZE_IM op2) {
 	gen_load_param_addr(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 2);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_IIR(void * func,Bitu op1,Bitu op2,Bitu op3) {
 	gen_load_param_reg(op3,2);
 	gen_load_param_imm(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 3);
 }
 
@@ -451,7 +454,7 @@ static DRC_PTR_SIZE_IM INLINE gen_call_function_IIIR(void * func,Bitu op1,Bitu o
 	gen_load_param_reg(op4,3);
 	gen_load_param_imm(op3,2);
 	gen_load_param_imm(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 4);
 }
 
@@ -459,18 +462,18 @@ static DRC_PTR_SIZE_IM INLINE gen_call_function_IRRR(void * func,Bitu op1,Bitu o
 	gen_load_param_reg(op4,3);
 	gen_load_param_reg(op3,2);
 	gen_load_param_reg(op2,1);
-	gen_load_param_imm(op1,0);
+	gen_load_param_imm(op1,0,true);
 	return gen_call_function_setup(func, 4);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_m(void * func,Bitu op) {
-	gen_load_param_mem(op,2);
+	gen_load_param_mem(op,2,true);
 	return gen_call_function_setup(func, 3, true);
 }
 
 static DRC_PTR_SIZE_IM INLINE gen_call_function_mm(void * func,Bitu op1,Bitu op2) {
 	gen_load_param_mem(op2,3);
-	gen_load_param_mem(op1,2);
+	gen_load_param_mem(op1,2,true);
 	return gen_call_function_setup(func, 4, true);
 }
 
@@ -481,11 +484,12 @@ enum save_info_type {exception, cycle_check, string_break};
 
 // function that is called on exceptions
 static BlockReturn DynRunException(Bit32u eip_add,Bit32u cycle_sub) {
+	DRC_SAVE_CREG(FC_CACHE_ESP);		// this would proabably better be placed in an asm file so the compiler doesn't mess it up
 	reg_eip+=eip_add;
 	CPU_Cycles-=cycle_sub;
 	if (cpu.exception.which==SMC_CURRENT_BLOCK) return BR_SMCBlock;
 	CPU_Exception(cpu.exception.which,cpu.exception.error);
-	return BR_Normal;
+	return BR_NoESP;
 }
 
 
@@ -496,22 +500,18 @@ static struct {
 	DRC_PTR_SIZE_IM branch_pos;
 	Bit32u eip_change;
 	Bitu cycles;
-} save_info_dynrec[512];
+} save_info_dynrec[128];
 
 Bitu used_save_info_dynrec=0;
 
-
 // return from current block, with returncode
-static void dyn_return(BlockReturn retcode,bool ret_exception=false) {
-	if (!ret_exception) {
-		gen_mov_dword_to_reg_imm(FC_RETOP,retcode);
-	}
-	gen_return_function();
+static INLINE void dyn_return(BlockReturn retcode,bool ret_exception=false) {
+	gen_return_function((Bit16u)retcode,ret_exception);
 }
 
 static void dyn_run_code(void) {
 	gen_run_code();
-	gen_return_function();
+//	gen_return_function();
 }
 
 // fill in code at the end of the block that contains rarely-executed code
@@ -566,13 +566,14 @@ static void dyn_check_exception(HostReg reg) {
 bool DRC_CALL_CONV mem_readb_checked_drc(PhysPt address) DRC_FC;
 bool DRC_CALL_CONV mem_readb_checked_drc(PhysPt address) {
 	Bitu index=(address>>12);
-	if (paging.tlb.read[index]) {
-		*((Bit8u*)(&core_dynrec.readdata))=host_readb(paging.tlb.read[index]+address);
+	tlb_entry *entry = get_tlb_entry(address);
+	if (entry->read) {
+		*((Bit8u*)(&core_dynrec.readdata))=host_readb(entry->read+address);
 		return false;
 	} else {
 		Bitu uval;
 		bool retval;
-		retval=paging.tlb.handler[index]->readb_checked(address, &uval);
+		retval=entry->handler->readb_checked(address, &uval);
 		*((Bit8u*)(&core_dynrec.readdata))=(Bit8u)uval;
 		return retval;
 	}
@@ -581,10 +582,11 @@ bool DRC_CALL_CONV mem_readb_checked_drc(PhysPt address) {
 bool DRC_CALL_CONV mem_writeb_checked_drc(PhysPt address,Bit8u val) DRC_FC;
 bool DRC_CALL_CONV mem_writeb_checked_drc(PhysPt address,Bit8u val) {
 	Bitu index=(address>>12);
-	if (paging.tlb.write[index]) {
-		host_writeb(paging.tlb.write[index]+address,val);
+	tlb_entry *entry = get_tlb_entry(address);
+	if (entry->write) {
+		host_writeb(entry->write+address,val);
 		return false;
-	} else return paging.tlb.handler[index]->writeb_checked(address,val);
+	} else return entry->handler->writeb_checked(address,val);
 }
 
 bool DRC_CALL_CONV mem_readw_checked_drc(PhysPt address) DRC_FC;
@@ -594,14 +596,15 @@ bool DRC_CALL_CONV mem_readw_checked_drc(PhysPt address) {
 #else
 	if ((address & 0xfff)<0xfff) {
 #endif
-			Bitu index=(address>>12);
-		if (paging.tlb.read[index]) {
-			*((Bit16u*)(&core_dynrec.readdata))=host_readw(paging.tlb.read[index]+address);
+		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->read) {
+			*((Bit16u*)(&core_dynrec.readdata))=host_readw(entry->read+address);
 			return false;
 		} else {
 			Bitu uval;
 			bool retval;
-			retval=paging.tlb.handler[index]->readw_checked(address, &uval);
+			retval=entry->handler->readw_checked(address, &uval);
 			*((Bit16u*)(&core_dynrec.readdata))=(Bit16u)uval;
 			return retval;
 		}
@@ -616,13 +619,14 @@ bool DRC_CALL_CONV mem_readd_checked_drc(PhysPt address) {
 	if ((address & 0xfff)<0xffd) {
 #endif
 		Bitu index=(address>>12);
-		if (paging.tlb.read[index]) {
-			*((Bit32u*)(&core_dynrec.readdata))=host_readd(paging.tlb.read[index]+address);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->read) {
+			*((Bit32u*)(&core_dynrec.readdata))=host_readd(entry->read+address);
 			return false;
 		} else {
 			Bitu uval;
 			bool retval;
-			retval=paging.tlb.handler[index]->readd_checked(address, &uval);
+			retval=entry->handler->readd_checked(address, &uval);
 			*((Bit32u*)(&core_dynrec.readdata))=(Bit32u)uval;
 			return retval;
 		}
@@ -637,10 +641,11 @@ bool DRC_CALL_CONV mem_writew_checked_drc(PhysPt address,Bit16u val) {
 	if ((address & 0xfff)<0xfff) {
 #endif
 		Bitu index=(address>>12);
-		if (paging.tlb.write[index]) {
-			host_writew(paging.tlb.write[index]+address,val);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->write) {
+			host_writew(entry->write+address,val);
 			return false;
-		} else return paging.tlb.handler[index]->writew_checked(address,val);
+		} else return entry->handler->writew_checked(address,val);
 	} else return mem_unalignedwritew_checked_x86(address,val);
 }
 
@@ -652,10 +657,11 @@ bool DRC_CALL_CONV mem_writed_checked_drc(PhysPt address,Bit32u val) {
 	if ((address & 0xfff)<0xffd) {
 #endif
 		Bitu index=(address>>12);
-		if (paging.tlb.write[index]) {
-			host_writed(paging.tlb.write[index]+address,val);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->write) {
+			host_writed(entry->write+address,val);
 			return false;
-		} else return paging.tlb.handler[index]->writed_checked(address,val);
+		} else return entry->handler->writed_checked(address,val);
 	} else return mem_unalignedwrited_checked_x86(address,val);
 }
 
@@ -664,13 +670,13 @@ bool DRC_CALL_CONV mem_writed_checked_drc(PhysPt address,Bit32u val) {
 
 // read a byte from a given address and store it in reg_dst
 static void dyn_read_byte(HostReg reg_addr,HostReg reg_dst) {
-	gen_mov_regs(FC_OP1,reg_addr);
+	gen_load_param_reg(reg_addr,0,true);
 	gen_call_function_raw((void *)&mem_readb_checked_drc);
 	dyn_check_exception(FC_RETOP);
 	gen_mov_byte_to_reg_low(reg_dst,&core_dynrec.readdata);
 }
 static void dyn_read_byte_canuseword(HostReg reg_addr,HostReg reg_dst) {
-	gen_mov_regs(FC_OP1,reg_addr);
+	gen_load_param_reg(reg_addr,0,true);
 	gen_call_function_raw((void *)&mem_readb_checked_drc);
 	dyn_check_exception(FC_RETOP);
 	gen_mov_byte_to_reg_low_canuseword(reg_dst,&core_dynrec.readdata);
@@ -679,7 +685,7 @@ static void dyn_read_byte_canuseword(HostReg reg_addr,HostReg reg_dst) {
 // write a byte from reg_val into the memory given by the address
 static void dyn_write_byte(HostReg reg_addr,HostReg reg_val) {
 	gen_mov_regs(FC_OP2,reg_val);
-	gen_mov_regs(FC_OP1,reg_addr);
+	gen_load_param_reg(reg_addr,0,true);
 	gen_call_function_raw((void *)&mem_writeb_checked_drc);
 	dyn_check_exception(FC_RETOP);
 }
@@ -687,7 +693,7 @@ static void dyn_write_byte(HostReg reg_addr,HostReg reg_val) {
 // read a 32bit (dword=true) or 16bit (dword=false) value
 // from a given address and store it in reg_dst
 static void dyn_read_word(HostReg reg_addr,HostReg reg_dst,bool dword) {
-	gen_mov_regs(FC_OP1,reg_addr);
+	gen_load_param_reg(reg_addr,0,true);
 	if (dword) gen_call_function_raw((void *)&mem_readd_checked_drc);
 	else gen_call_function_raw((void *)&mem_readw_checked_drc);
 	dyn_check_exception(FC_RETOP);
@@ -699,7 +705,7 @@ static void dyn_read_word(HostReg reg_addr,HostReg reg_dst,bool dword) {
 static void dyn_write_word(HostReg reg_addr,HostReg reg_val,bool dword) {
 //	if (!dword) gen_extend_word(false,reg_val);
 	gen_mov_regs(FC_OP2,reg_val);
-	gen_mov_regs(FC_OP1,reg_addr);
+	gen_load_param_reg(reg_addr,0,true);
 	if (dword) gen_call_function_raw((void *)&mem_writed_checked_drc);
 	else gen_call_function_raw((void *)&mem_writew_checked_drc);
 	dyn_check_exception(FC_RETOP);
@@ -709,20 +715,32 @@ static void dyn_write_word(HostReg reg_addr,HostReg reg_val,bool dword) {
 
 // effective address calculation helper, op2 has to be present!
 // loads op1 into ea_reg and adds the scaled op2 and the immediate to it
-static void dyn_lea(HostReg ea_reg,void* op1,void* op2,Bitu scale,Bits imm) {
+static void dyn_lea_mR(HostReg ea_reg,void* op1,Bitu op2,Bitu scale,Bits imm) {
 	if (scale || imm) {
 		if (op1!=NULL) {
 			gen_mov_word_to_reg(ea_reg,op1,true);
-			gen_mov_word_to_reg(TEMP_REG_DRC,op2,true);
+			gen_get_creg_word(TEMP_REG_DRC,op2,true);
 
 			gen_lea(ea_reg,TEMP_REG_DRC,scale,imm);
 		} else {
-			gen_mov_word_to_reg(ea_reg,op2,true);
+			gen_get_creg_word(ea_reg,op2,true);
 			gen_lea(ea_reg,scale,imm);
 		}
 	} else {
-		gen_mov_word_to_reg(ea_reg,op2,true);
+		gen_get_creg_word(ea_reg,op2,true);
 		if (op1!=NULL) gen_add(ea_reg,op1);
+	}
+}
+
+static void dyn_lea_RR(HostReg ea_reg, Bitu reg1, Bitu reg2, Bitu scale, Bits imm) {
+	if (scale || imm) {
+		gen_get_creg_word(ea_reg,reg1,true);
+		gen_get_creg_word(TEMP_REG_DRC,reg2,true);
+
+		gen_lea(ea_reg,TEMP_REG_DRC,scale,imm);
+	} else {
+		gen_get_creg_word(ea_reg,reg2,true);
+		gen_add_creg(ea_reg,reg1);
 	}
 }
 
@@ -738,25 +756,25 @@ static void dyn_fill_ea(HostReg ea_reg,bool addseg=true) {
 		}
 		switch (decode.modrm.rm) {
 		case 0:// BX+SI
-			dyn_lea(ea_reg,DRCD_REG(DRC_REG_EBX),DRCD_REG(DRC_REG_ESI),0,imm);
+			dyn_lea_RR(ea_reg,DRC_REG_EBX,DRC_REG_ESI,0,imm);
 			break;
 		case 1:// BX+DI
-			dyn_lea(ea_reg,DRCD_REG(DRC_REG_EBX),DRCD_REG(DRC_REG_EDI),0,imm);
+			dyn_lea_RR(ea_reg,DRC_REG_EBX,DRC_REG_EDI,0,imm);
 			break;
 		case 2:// BP+SI
-			dyn_lea(ea_reg,DRCD_REG(DRC_REG_EBP),DRCD_REG(DRC_REG_ESI),0,imm);
+			dyn_lea_RR(ea_reg,DRC_REG_EBP,DRC_REG_ESI,0,imm);
 			seg_base=DRC_SEG_SS;
 			break;
 		case 3:// BP+DI
-			dyn_lea(ea_reg,DRCD_REG(DRC_REG_EBP),DRCD_REG(DRC_REG_EDI),0,imm);
+			dyn_lea_RR(ea_reg,DRC_REG_EBP,DRC_REG_EDI,0,imm);
 			seg_base=DRC_SEG_SS;
 			break;
 		case 4:// SI
-			gen_mov_word_to_reg(ea_reg,DRCD_REG(DRC_REG_ESI),true);
+			gen_get_creg_word(ea_reg,DRC_REG_ESI,true);
 			if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 			break;
 		case 5:// DI
-			gen_mov_word_to_reg(ea_reg,DRCD_REG(DRC_REG_EDI),true);
+			gen_get_creg_word(ea_reg,DRC_REG_EDI,true);
 			if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 			break;
 		case 6:// imm/BP
@@ -765,13 +783,13 @@ static void dyn_fill_ea(HostReg ea_reg,bool addseg=true) {
 				gen_mov_dword_to_reg_imm(ea_reg,(Bit32u)imm);
 				goto skip_extend_word;
 			} else {
-				gen_mov_word_to_reg(ea_reg,DRCD_REG(DRC_REG_EBP),true);
+				gen_get_creg_word(ea_reg,DRC_REG_EBP,true);
 				gen_add_imm(ea_reg,(Bit32u)imm);
 				seg_base=DRC_SEG_SS;
 			}
 			break;
 		case 7: // BX
-			gen_mov_word_to_reg(ea_reg,DRCD_REG(DRC_REG_EBX),true);
+			gen_get_creg_word(ea_reg,DRC_REG_EBX,true);
 			if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 			break;
 		}
@@ -824,14 +842,14 @@ skip_extend_word:
 								if (!scaled_reg_used) {
 									gen_mov_word_to_reg(ea_reg,(void*)val,true);
 								} else {
-									dyn_lea(ea_reg,NULL,DRCD_REG(scaled_reg),scale,0);
+									dyn_lea_mR(ea_reg,NULL,scaled_reg,scale,0);
 									gen_add(ea_reg,(void*)val);
 								}
 							} else {
 								if (!scaled_reg_used) {
 									gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
 								} else {
-									dyn_lea(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),DRCD_REG(scaled_reg),scale,0);
+									dyn_lea_mR(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),scaled_reg,scale,0);
 								}
 								gen_add(ea_reg,(void*)val);
 							}
@@ -844,14 +862,14 @@ skip_extend_word:
 							if (!scaled_reg_used) {
 								gen_mov_dword_to_reg_imm(ea_reg,(Bit32u)imm);
 							} else {
-								dyn_lea(ea_reg,NULL,DRCD_REG(scaled_reg),scale,imm);
+								dyn_lea_mR(ea_reg,NULL,scaled_reg,scale,imm);
 							}
 						} else {
 							if (!scaled_reg_used) {
 								gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
 								if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 							} else {
-								dyn_lea(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),DRCD_REG(scaled_reg),scale,imm);
+								dyn_lea_mR(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),scaled_reg,scale,imm);
 							}
 						}
 
@@ -873,19 +891,19 @@ skip_extend_word:
 						// succeeded, use the pointer to avoid code invalidation
 						if (!addseg) {
 							if (!scaled_reg_used) {
-								gen_mov_word_to_reg(ea_reg,DRCD_REG(base_reg),true);
+								gen_get_creg_word(ea_reg,base_reg,true);
 								gen_add(ea_reg,(void*)val);
 							} else {
-								dyn_lea(ea_reg,DRCD_REG(base_reg),DRCD_REG(scaled_reg),scale,0);
+								dyn_lea_RR(ea_reg,base_reg,scaled_reg,scale,0);
 								gen_add(ea_reg,(void*)val);
 							}
 						} else {
 							if (!scaled_reg_used) {
 								gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
 							} else {
-								dyn_lea(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),DRCD_REG(scaled_reg),scale,0);
+								dyn_lea_mR(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),scaled_reg,scale,0);
 							}
-							gen_add(ea_reg,DRCD_REG(base_reg));
+							gen_add_creg(ea_reg,base_reg);
 							gen_add(ea_reg,(void*)val);
 						}
 						return;
@@ -898,19 +916,19 @@ skip_extend_word:
 
 				if (!addseg) {
 					if (!scaled_reg_used) {
-						gen_mov_word_to_reg(ea_reg,DRCD_REG(base_reg),true);
+						gen_get_creg_word(ea_reg,base_reg,true);
 						gen_add_imm(ea_reg,(Bit32u)imm);
 					} else {
-						dyn_lea(ea_reg,DRCD_REG(base_reg),DRCD_REG(scaled_reg),scale,imm);
+						dyn_lea_RR(ea_reg,base_reg,scaled_reg,scale,imm);
 					}
 				} else {
 					if (!scaled_reg_used) {
 						gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
-						gen_add(ea_reg,DRCD_REG(base_reg));
+						gen_add_creg(ea_reg,base_reg);
 						if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 					} else {
-						dyn_lea(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),DRCD_REG(scaled_reg),scale,imm);
-						gen_add(ea_reg,DRCD_REG(base_reg));
+						dyn_lea_mR(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),scaled_reg,scale,imm);
+						gen_add_creg(ea_reg,base_reg);
 					}
 				}
 
@@ -950,11 +968,11 @@ skip_extend_word:
 			if (decode_fetchd_imm(val)) {
 				// succeeded, use the pointer to avoid code invalidation
 				if (!addseg) {
-					gen_mov_word_to_reg(ea_reg,DRCD_REG(base_reg),true);
+					gen_get_creg_word(ea_reg,base_reg,true);
 					gen_add(ea_reg,(void*)val);
 				} else {
 					gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
-					gen_add(ea_reg,DRCD_REG(base_reg));
+					gen_add_creg(ea_reg,base_reg);
 					gen_add(ea_reg,(void*)val);
 				}
 				return;
@@ -966,11 +984,11 @@ skip_extend_word:
 		}
 
 		if (!addseg) {
-			gen_mov_word_to_reg(ea_reg,DRCD_REG(base_reg),true);
+			gen_get_creg_word(ea_reg,base_reg,true);
 			if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 		} else {
 			gen_mov_word_to_reg(ea_reg,DRCD_SEG_PHYS(decode.seg_prefix_used ? decode.seg_prefix : seg_base),true);
-			gen_add(ea_reg,DRCD_REG(base_reg));
+			gen_add_creg(ea_reg,base_reg);
 			if (imm) gen_add_imm(ea_reg,(Bit32u)imm);
 		}
 	}
@@ -1027,13 +1045,117 @@ static void gen_restore_reg(HostReg reg,HostReg dest_reg) {
 	gen_mov_word_to_reg(dest_reg,&core_dynrec.protected_regs[reg],true);
 }
 
+static Bitu mf_functions_num=0;
 
-
+#ifdef PSP //This way the switch in gen_fill_function_ptr is optimized away
 // flags optimization functions
 // they try to find out if a function can be replaced by another
 // one that does not generate any flags at all
 
-static Bitu mf_functions_num=0;
+static struct {
+	DRC_PTR_SIZE_IM pos;
+	Bit32u fct_ptr;
+	bool insn;
+} mf_functions[64];
+
+static void InitFlagsOptimization(void) {
+	mf_functions_num=0;
+}
+
+// replace all queued functions with their simpler variants
+// because the current instruction destroys all condition flags and
+// the flags are not required before
+static INLINE void InvalidateFlags(void) {
+	for (Bitu ct=0; ct<mf_functions_num; ct++) {
+		if(mf_functions[ct].insn) {
+			*(Bit32u*)(mf_functions[ct].pos)=*(Bit32u*)(mf_functions[ct].pos+4);
+			*(Bit32u*)(mf_functions[ct].pos+4)=mf_functions[ct].fct_ptr;
+		} else *(Bit32u*)(mf_functions[ct].pos)=mf_functions[ct].fct_ptr;
+	}
+	mf_functions_num=0;
+}
+
+// replace all queued functions with their simpler variants
+// because the current instruction destroys all condition flags and
+// the flags are not required before
+static INLINE void InvalidateFlags(void* current_simple_function, Bitu flags_type) {
+	Bit32u fill;
+	for (Bitu ct=0; ct<mf_functions_num; ct++) {
+		if(mf_functions[ct].insn) {
+			*(Bit32u*)(mf_functions[ct].pos)=*(Bit32u*)(mf_functions[ct].pos+4);
+			*(Bit32u*)(mf_functions[ct].pos+4)=mf_functions[ct].fct_ptr;
+		} else *(Bit32u*)(mf_functions[ct].pos)=mf_functions[ct].fct_ptr;
+	}
+	mf_functions[0].pos=(DRC_PTR_SIZE_IM)cache.pos;
+	fill = gen_fill_function_ptr(current_simple_function, flags_type);
+	if(fill == -1) {
+		mf_functions[0].insn = false;
+		mf_functions[0].fct_ptr = 0x0c000000+((((Bit32u)current_simple_function)>>2)&0x3ffffff);	// jal simple_func
+	} else {
+		mf_functions[0].insn = true;
+		mf_functions[0].fct_ptr = fill;
+	}
+	mf_functions_num=1;
+}
+
+static INLINE void InvalidateFlags(void* current_simple_function,DRC_PTR_SIZE_IM cpos, Bitu flags_type) {
+	Bit32u fill;
+	for (Bitu ct=0; ct<mf_functions_num; ct++) {
+		if(mf_functions[ct].insn) {
+			*(Bit32u*)(mf_functions[ct].pos)=*(Bit32u*)(mf_functions[ct].pos+4);
+			*(Bit32u*)(mf_functions[ct].pos+4)=mf_functions[ct].fct_ptr;
+		} else *(Bit32u*)(mf_functions[ct].pos)=mf_functions[ct].fct_ptr;
+	}
+	mf_functions[0].pos=(DRC_PTR_SIZE_IM)cpos;
+	fill = gen_fill_function_ptr(current_simple_function, flags_type);
+	if(fill == -1) {
+		mf_functions[0].insn = false;
+		mf_functions[0].fct_ptr = 0x0c000000+((((Bit32u)current_simple_function)>>2)&0x3ffffff);	// jal simple_func
+	} else {
+		mf_functions[0].insn = true;
+		mf_functions[0].fct_ptr = fill;
+	}
+	mf_functions_num=1;
+}
+
+// enqueue this instruction, if later an instruction is encountered that
+// destroys all condition flags and the flags weren't needed in-between
+// this function can be replaced by a simpler one as well
+static INLINE void InvalidateFlagsPartially(void* current_simple_function, Bitu flags_type) {
+	Bit32u fill;
+	mf_functions[mf_functions_num].pos=(DRC_PTR_SIZE_IM)cache.pos;
+	fill = gen_fill_function_ptr(current_simple_function, flags_type);
+	if(fill == -1) {
+		mf_functions[mf_functions_num].insn = false;
+		mf_functions[mf_functions_num].fct_ptr = 0x0c000000+((((Bit32u)current_simple_function)>>2)&0x3ffffff);	// jal simple_func
+	} else {
+		mf_functions[mf_functions_num].insn = true;
+		mf_functions[mf_functions_num].fct_ptr = fill;
+	}
+	mf_functions_num++;
+}
+
+// enqueue this instruction, if later an instruction is encountered that
+// destroys all condition flags and the flags weren't needed in-between
+// this function can be replaced by a simpler one as well
+static INLINE void InvalidateFlagsPartially(void* current_simple_function,DRC_PTR_SIZE_IM cpos, Bitu flags_type) {
+	Bit32u fill;
+	mf_functions[mf_functions_num].pos=cpos;
+	fill = gen_fill_function_ptr(current_simple_function, flags_type);
+	if(fill == -1) {
+		mf_functions[mf_functions_num].insn = false;
+		mf_functions[mf_functions_num].fct_ptr = 0x0c000000+((((Bit32u)current_simple_function)>>2)&0x3ffffff);	// jal simple_func
+	} else {
+		mf_functions[mf_functions_num].insn = true;
+		mf_functions[mf_functions_num].fct_ptr = fill;
+	}
+	mf_functions_num++;
+}
+#else
+// flags optimization functions
+// they try to find out if a function can be replaced by another
+// one that does not generate any flags at all
+
 static struct {
 	Bit8u* pos;
 	void* fct_ptr;
@@ -1094,7 +1216,7 @@ static void InvalidateFlagsPartially(void* current_simple_function,DRC_PTR_SIZE_
 	mf_functions_num++;
 #endif
 }
-
+#endif
 // the current function needs the condition flags thus reset the queue
 static void AcquireFlags(Bitu flags_mask) {
 #ifdef DRC_FLAGS_INVALIDATION

@@ -88,19 +88,19 @@ INLINE Bit8u host_readb(HostPt off) {
 	return *(Bit8u *)off;
 };
 INLINE Bit16u host_readw(HostPt off) {
-	return *(Bit16u *)off;
+	return ((unaligned_half *)off)->val;
 };
 INLINE Bit32u host_readd(HostPt off) {
-	return *(Bit32u *)off;
+	return ((unaligned_word *)off)->val;
 };
 INLINE void host_writeb(HostPt off,Bit8u val) {
 	*(Bit8u *)(off)=val;
 };
 INLINE void host_writew(HostPt off,Bit16u val) {
-	*(Bit16u *)(off)=val;
+	((unaligned_half *)(off))->val=val;
 };
 INLINE void host_writed(HostPt off,Bit32u val) {
-	*(Bit32u *)(off)=val;
+	((unaligned_word *)(off))->val=val;
 };
 
 #endif

@@ -22,7 +22,7 @@
 #include <sstream>
 #include "dosbox.h"
 #include "cpu.h"
-#include "memory.h"
+//#include "memory.h"
 #include "debug.h"
 #include "mapper.h"
 #include "setup.h"
@@ -43,11 +43,12 @@ extern void GFX_SetTitle(Bit32s cycles ,Bits frameskip,bool paused);
 #endif
 #endif
 
-CPU_Regs cpu_regs;
-CPUBlock cpu;
-Segments Segs;
-
+CPU_Regs cpu_regs __attribute__((aligned(64)));
+LazyFlags lflags __attribute__((aligned(64)));
 Bit32s CPU_Cycles = 0;
+Segments Segs;
+CPUBlock cpu;
+
 Bit32s CPU_CycleLeft = 0;
 Bit32s CPU_CycleMax = 3000;
 Bit32s CPU_OldCycleMax = 3000;
@@ -59,6 +60,10 @@ Bit64s CPU_IODelayRemoved = 0;
 CPU_Decoder * cpudecoder;
 bool CPU_CycleAutoAdjust;
 Bitu CPU_AutoDetermineMode;
+
+#ifdef PSP
+bool autocycles=false;
+#endif
 
 void CPU_Core_Full_Init(void);
 void CPU_Core_Normal_Init(void);
@@ -267,6 +272,7 @@ enum TSwitchType {
 };
 
 bool CPU_SwitchTask(Bitu new_tss_selector,TSwitchType tstype,Bitu old_eip) {
+	E_Exit("TSS doesn't currently work with creg");
 	FillFlags();
 	TaskStateSegment new_tss;
 	if (!new_tss.SetSelector(new_tss_selector)) 
@@ -1902,7 +1908,7 @@ bool CPU_SetSegGeneral(SegNames seg,Bitu value) {
 			Segs.val[seg]=value;
 			Segs.phys[seg]=desc.GetBase();
 		}
-
+		
 		return false;
 	}
 }
@@ -2076,8 +2082,12 @@ public:
 
 		/* Init the cpu cores */
 		CPU_Core_Normal_Init();
+#ifdef SIMPLE
 		CPU_Core_Simple_Init();
+#endif
+#ifdef FULL
 		CPU_Core_Full_Init();
+#endif
 #if (C_DYNAMIC_X86)
 		CPU_Core_Dyn_X86_Init();
 #elif (C_DYNREC)
@@ -2097,6 +2107,11 @@ public:
 		std::string str;
 		CommandLine cmd(0,section->Get_string("cycles"));
 		cmd.FindCommand(1,str);
+#ifdef PSP
+		autocycles = false;
+#endif
+		CPU_CycleUp=section->Get_int("cycleup");
+		CPU_CycleDown=section->Get_int("cycledown");
 
 		if (str=="max") {
 			CPU_CycleMax=0;
@@ -2155,6 +2170,11 @@ public:
 						}
 					}
 				}
+#ifdef PSP
+			} else if (str=="sync") {
+				autocycles = true;
+				CPU_CycleMax = CPU_CycleUp;
+#endif				
 			} else {
 				int rmdval=0;
 				std::istringstream stream(str);
@@ -2163,17 +2183,19 @@ public:
 			}
 			CPU_CycleAutoAdjust=false;
 		}
-		CPU_CycleUp=section->Get_int("cycleup");
-		CPU_CycleDown=section->Get_int("cycledown");
 		const char * core=section->Get_string("core");
 		cpudecoder=&CPU_Core_Normal_Run;
 		if (!strcasecmp(core,"normal")) {
 			cpudecoder=&CPU_Core_Normal_Run;
+#ifdef SIMPLE
 		} else if (!strcasecmp(core,"simple")) {
 			cpudecoder=&CPU_Core_Simple_Run;
+#endif
+#ifdef FULL
 		} else if (!strcasecmp(core,"full")) {
 			cpudecoder=&CPU_Core_Full_Run;
-		} 
+#endif
+		}
 #if (C_DYNAMIC_X86)
 		else if (!strcasecmp(core,"dynamic")) {
 			cpudecoder=&CPU_Core_Dyn_X86_Run;

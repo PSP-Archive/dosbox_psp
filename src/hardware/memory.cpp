@@ -28,21 +28,21 @@
 #include <string.h>
 
 #define PAGES_IN_BLOCK	((1024*1024)/MEM_PAGE_SIZE)
-#define MAX_MEMORY	64
-#define MAX_PAGE_ENTRIES (MAX_MEMORY*1024*1024/4096)
+//#define MAX_MEMORY	64
+//#define MAX_PAGE_ENTRIES (MAX_MEMORY*1024*1024/4096)
 #define LFB_PAGES	512
-#define MAX_LINKS	((MAX_MEMORY*1024/4)+4096)		//Hopefully enough
+//#define MAX_LINKS	((MAX_MEMORY*1024/4)+4096)		//Hopefully enough
 
-struct LinkBlock {
+/*struct LinkBlock {
 	Bitu used;
 	Bit32u pages[MAX_LINKS];
-};
+};*/
 
 static struct MemoryBlock {
 	Bitu pages;
 	PageHandler * * phandlers;
 	MemHandle * mhandles;
-	LinkBlock links;
+//	LinkBlock links;
 	struct	{
 		Bitu		start_page;
 		Bitu		end_page;
@@ -421,12 +421,12 @@ void MEM_A20_Enable(bool enabled) {
 
 
 /* Memory access functions */
-Bit16u mem_unalignedreadw(PhysPt address) {
+Bit16u __attribute__((noinline)) mem_unalignedreadw(PhysPt address) {
 	return mem_readb_inline(address) |
 		mem_readb_inline(address+1) << 8;
 }
 
-Bit32u mem_unalignedreadd(PhysPt address) {
+Bit32u __attribute__((noinline)) mem_unalignedreadd(PhysPt address) {
 	return mem_readb_inline(address) |
 		(mem_readb_inline(address+1) << 8) |
 		(mem_readb_inline(address+2) << 16) |
@@ -434,12 +434,12 @@ Bit32u mem_unalignedreadd(PhysPt address) {
 }
 
 
-void mem_unalignedwritew(PhysPt address,Bit16u val) {
+void __attribute__((noinline)) mem_unalignedwritew(PhysPt address,Bit16u val) {
 	mem_writeb_inline(address,(Bit8u)val);val>>=8;
 	mem_writeb_inline(address+1,(Bit8u)val);
 }
 
-void mem_unalignedwrited(PhysPt address,Bit32u val) {
+void __attribute__((noinline)) mem_unalignedwrited(PhysPt address,Bit32u val) {
 	mem_writeb_inline(address,(Bit8u)val);val>>=8;
 	mem_writeb_inline(address+1,(Bit8u)val);val>>=8;
 	mem_writeb_inline(address+2,(Bit8u)val);val>>=8;
@@ -447,7 +447,7 @@ void mem_unalignedwrited(PhysPt address,Bit32u val) {
 }
 
 
-bool mem_unalignedreadw_checked_x86(PhysPt address, Bit16u * val) {
+bool __attribute__((noinline)) mem_unalignedreadw_checked_x86(PhysPt address, Bit16u * val) {
 	Bit8u rval1,rval2;
 	if (mem_readb_checked_x86(address+0, &rval1)) return true;
 	if (mem_readb_checked_x86(address+1, &rval2)) return true;
@@ -455,7 +455,7 @@ bool mem_unalignedreadw_checked_x86(PhysPt address, Bit16u * val) {
 	return false;
 }
 
-bool mem_unalignedreadd_checked_x86(PhysPt address, Bit32u * val) {
+bool __attribute__((noinline)) mem_unalignedreadd_checked_x86(PhysPt address, Bit32u * val) {
 	Bit8u rval1,rval2,rval3,rval4;
 	if (mem_readb_checked_x86(address+0, &rval1)) return true;
 	if (mem_readb_checked_x86(address+1, &rval2)) return true;
@@ -465,13 +465,13 @@ bool mem_unalignedreadd_checked_x86(PhysPt address, Bit32u * val) {
 	return false;
 }
 
-bool mem_unalignedwritew_checked_x86(PhysPt address,Bit16u val) {
+bool __attribute__((noinline)) mem_unalignedwritew_checked_x86(PhysPt address,Bit16u val) {
 	if (mem_writeb_checked_x86(address,(Bit8u)(val & 0xff))) return true;val>>=8;
 	if (mem_writeb_checked_x86(address+1,(Bit8u)(val & 0xff))) return true;
 	return false;
 }
 
-bool mem_unalignedwrited_checked_x86(PhysPt address,Bit32u val) {
+bool __attribute__((noinline)) mem_unalignedwrited_checked_x86(PhysPt address,Bit32u val) {
 	if (mem_writeb_checked_x86(address,(Bit8u)(val & 0xff))) return true;val>>=8;
 	if (mem_writeb_checked_x86(address+1,(Bit8u)(val & 0xff))) return true;val>>=8;
 	if (mem_writeb_checked_x86(address+2,(Bit8u)(val & 0xff))) return true;val>>=8;
@@ -537,10 +537,10 @@ public:
 	
 		if (memsize < 1) memsize = 1;
 		/* max 63 to solve problems with certain xms handlers */
-		if (memsize > MAX_MEMORY-1) {
+/*		if (memsize > MAX_MEMORY-1) {
 			LOG_MSG("Maximum memory size is %d MB",MAX_MEMORY - 1);
 			memsize = MAX_MEMORY-1;
-		}
+		}*/
 		MemBase = new Bit8u[memsize*1024*1024];
 		if (!MemBase) E_Exit("Can't allocate main memory of %d MB",memsize);
 		/* Clear the memory, as new doesn't always give zeroed memory
@@ -569,7 +569,7 @@ public:
 			}
 		}
 		/* Reset some links */
-		memory.links.used = 0;
+//		memory.links.used = 0;
 		// A20 Line - PS/2 system control port A
 		WriteHandler.Install(0x92,write_p92,IO_MB);
 		ReadHandler.Install(0x92,read_p92,IO_MB);

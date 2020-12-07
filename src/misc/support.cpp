@@ -30,6 +30,9 @@
 #include "support.h"
 #include "video.h"
 
+#ifdef PSP_ME
+#include "me_rpc_code.h"
+#endif
 /* 
 	Ripped some source from freedos for this one.
 
@@ -153,6 +156,7 @@ void E_Exit(const char * format,...) {
 	vsprintf(buf,format,msg);
 	va_end(msg);
 	strcat(buf,"\n");
+	printf("%s",buf);
 
 	throw(buf);
 }

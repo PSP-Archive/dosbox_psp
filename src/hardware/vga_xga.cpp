@@ -27,6 +27,8 @@
 
 #define XGA_SHOW_COMMAND_TRACE 0
 
+#if (IO_MAX > 0xe2ea)
+
 struct XGAStatus {
 	struct scissorreg {
 		Bit16u x1, y1, x2, y2;
@@ -1169,4 +1171,6 @@ void VGA_SetupXGA(void) {
 
 
 }
-
+#else
+void VGA_SetupXGA(void) {}
+#endif

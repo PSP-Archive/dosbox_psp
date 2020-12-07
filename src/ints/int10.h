@@ -18,8 +18,11 @@
 
 #include "vga.h"
 
+#ifdef PSP
+#define S3_LFB_BASE		0xFF00000
+#else
 #define S3_LFB_BASE		0xC0000000
-
+#endif
 #define BIOSMEM_SEG		0x40
 
 #define BIOSMEM_INITIAL_MODE  0x10

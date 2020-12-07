@@ -44,8 +44,17 @@ enum KBD_KEYS {
 	KBD_kpdivide,KBD_kpmultiply,KBD_kpminus,KBD_kpplus,KBD_kpenter,KBD_kpperiod,
 
 	
-	KBD_LAST
+	KBD_LAST, KBD_button1, KBD_button2
 };
+
+#ifdef PSP
+typedef struct keymap {
+	KBD_KEYS key;
+	Bitu mask;
+} keymap;
+
+#define CAN_USE_LOCK
+#endif
 
 void KEYBOARD_ClrBuffer(void);
 void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed);

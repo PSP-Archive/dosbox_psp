@@ -20,12 +20,17 @@
 #define DOSBOX_TIMER_H
 
 /* underlying clock rate in HZ */
-#include <SDL.h>
+#include "dosbox.h"
 
 #define PIT_TICK_RATE 1193182
 
+#ifdef USE_SDL
+#include <SDL.h>
 #define GetTicks() SDL_GetTicks()
-
+#elif defined(PSP)
+extern struct timeval start;
+Bitu GetTicks();
+#endif
 typedef void (*TIMER_TickHandler)(void);
 
 /* Register a function that gets called everytime if 1 or more ticks pass */
