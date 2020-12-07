@@ -1144,6 +1144,10 @@ case $cpu-$vendor in
 		basic_machine=nv1-cray
 		os=-unicosmp
 		;;
+	nv1)
+		basic_machine=nv1-cray
+		os=-unicosmp
+		;;
 	nsr-tandem)
 		cpu=nsr
 		vendor=tandem

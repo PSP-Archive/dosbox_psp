@@ -25,6 +25,10 @@
 #include "setup.h"
 #include "pic.h"
 
+#ifdef PSP
+#include <cstring>
+#endif
+
 #define LEFT	0x00
 #define RIGHT	0x01
 #define CMS_BUFFER_SIZE 128
