@@ -4,3 +4,7 @@ config.log
 config.status
 .deps
 stamp-h1
+*.o
+*.a
+*.orig
+*.rej

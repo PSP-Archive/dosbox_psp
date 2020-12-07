@@ -29,6 +29,10 @@
 #include "pic.h"
 #include "dma.h"
 
+#ifdef PSP
+#include <cstring>
+#endif
+
 #define DAC_CLOCK 3570000
 #define MAX_OUTPUT 0x7fff
 #define STEP 0x10000

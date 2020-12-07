@@ -3,6 +3,7 @@
 #include <pspgu.h>
 #include <pspdisplay.h>
 #include <malloc.h>
+#include <cstring>
 #include "dosbox.h"
 #include "render.h"
 #include "video.h"

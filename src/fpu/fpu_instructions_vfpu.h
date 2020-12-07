@@ -232,33 +232,33 @@ static float FROUND(float in){
 #define BIAS80 16383
 #define BIAS32 127
 
-static Real32 FPU_FLD_F80(PhysPt addr) {
-	struct{
-		Bit16s begin;
-		Bit32s upper;
-	} test;
+static Real32 FPU_FLD80(PhysPt addr) {
+    struct{
+        Bit16s begin;
+        Bit32s upper;
+    } test;
 //	test.lower=mem_readd(addr);  // no point
-	test.upper=mem_readd(addr+4);
-	test.begin=mem_readw(addr+8);
+    test.upper=mem_readd(addr+4);
+    test.begin=mem_readw(addr+8);
 
-	Bit32s exp32 = (test.begin & 0x7fff) - BIAS80;
-	Bit32s mant32 = (test.upper >> 8) & 0x7fffff;
-	Bit32s sign = (test.begin &0x8000)?1:0;
-	if(exp32 == 0x4000) exp32 = 0x80;
-	else if(exp32 > BIAS32) {
-		exp32 = 0x80;
-		mant32 = 0;
-		sign = 0;
-	} else if(exp32 < -BIAS32) {
-		exp32 = -BIAS32;
-		mant32 = 0;
-		sign = 0;
-	}
+    Bit32s exp32 = (test.begin & 0x7fff) - BIAS80;
+    Bit32s mant32 = (test.upper >> 8) & 0x7fffff;
+    Bit32s sign = (test.begin &0x8000)?1:0;
+    if(exp32 == 0x4000) exp32 = 0x80;
+    else if(exp32 > BIAS32) {
+        exp32 = 0x80;
+        mant32 = 0;
+        sign = 0;
+    } else if(exp32 < -BIAS32) {
+        exp32 = -BIAS32;
+        mant32 = 0;
+        sign = 0;
+    }
 
-	exp32 = (exp32 + BIAS32) & 0xff;
-	FPU_Reg result;
-	result.l = (sign <<31)|(exp32 << 23)| mant32;
-	return result.d;
+    exp32 = (exp32 + BIAS32) & 0xff;
+    FPU_Reg result;
+    result.l = (sign <<31)|(exp32 << 23)| mant32;
+    return result.d;
 }
 
 static void FPU_ST80(PhysPt addr, Bitu reg) {
@@ -618,7 +618,7 @@ static void FPU_FRSTOR(PhysPt addr){
 	FPU_FLDENV(addr);
 	Bitu start = (cpu.code.big?28:14);
 	for(Bitu i = 0;i < 8;i++){
-		fpu.regs[STV(i)].d = FPU_FLD_F80(addr+start);
+		fpu.regs[STV(i)].d = FPU_FLD80(addr+start);
 		start += 10;
 	}
 }
@@ -686,7 +686,7 @@ static INLINE void FPU_FLD_I16_EA(PhysPt addr) {
 }
 
 static void FPU_FLD_F80(PhysPt addr) {
-	fpu.regs[TOP].d = FPU_FLD_F80(addr);
+    fpu.regs[TOP].d = FPU_FLD80(addr);
 }
 
 static void FPU_FST_F80(PhysPt addr) {
