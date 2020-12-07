@@ -125,6 +125,7 @@ extern diskGeo DiskGeometryList[];
 #endif
 #ifndef DOSBOX_DOS_INC_H
 #include "dos_inc.h"
+#include <cstdlib>
 #endif
 
 class imageDisk  {
