@@ -49,7 +49,7 @@ typedef union {
 	float d;
 	Bit32s l;
 } FPU_Reg;
-typedef Real32 FVAL;
+//typedef Real32 FVAL;
 typedef union {
     double d;
 #ifndef WORDS_BIGENDIAN

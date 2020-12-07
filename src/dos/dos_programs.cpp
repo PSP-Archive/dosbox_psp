@@ -36,6 +36,10 @@
 #include "dos_inc.h"
 #include "bios.h"
 
+#ifdef PSP
+#include <sys/fcntl.h>
+#endif
+
 #if defined HAVE_SYS_TYPES_H && defined HAVE_PWD_H
 #include <sys/types.h>
 #include <pwd.h>
