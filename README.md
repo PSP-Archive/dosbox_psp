@@ -7,8 +7,13 @@
 - Configure with this command
 
 ```sh
-CXXFLAGS='-I${PSPDEV}/psp/sdk/include -I$(PSPDEV}/psp/include/SDL -fomit-frame-pointer -Os -frename-registers  -G0 -I${PSPDEV}/psp/include/SDL' LDFLAGS='-L${PSPDEV}/psp/sdk/lib -L${PSPDEV}/psp/lib -lc -lpspuser -lpspkernel -lpthread-psp' SDL_LIBS=-lsdl ./configure --host=psp
+CXXFLAGS='-I${PSPDEV}/psp/sdk/include -I$(PSPDEV}/psp/include/SDL -fomit-frame-pointer -Os -frename-registers  -G0 -I${PSPDEV}/psp/include/SDL' LDFLAGS='-L${PSPDEV}/psp/sdk/lib -L${PSPDEV}/psp/lib -lc -lpspuser -lpspkernel' ./configure --host=psp
 ```
+- Comment out this line in config.h
+```
+#define HAVE_PWD_H 1
+```
+
 - Run `make`, it will fail to link, this is expected.
 
 - `cd src`
