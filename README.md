@@ -2,7 +2,7 @@
 
 ## Instructions for building
 
-- Install the [psp toolchain](https://github.com/pspdev/psptoolchian)
+- Install the [psp toolchain](https://github.com/pspdev/psptoolchain)
 
 - Configure with this command
 
