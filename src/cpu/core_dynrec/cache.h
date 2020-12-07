@@ -72,6 +72,12 @@ static struct {
 
 static CacheBlockDynRec link_blocks[2];		// default linking (specially marked)
 
+// cache memory pointers, to be malloc'd later
+static Bit8u * cache_code_start_ptr=NULL;
+static Bit8u * cache_code=NULL;
+static Bit8u * cache_code_link_blocks=NULL;
+static CacheBlockDynRec * cache_blocks=NULL;
+
 // the CodePageHandlerDynRec class provides access to the contained
 // cache blocks and intercepts writes to the code for special treatment
 class CodePageHandlerDynRec : public PageHandler {
@@ -109,7 +115,7 @@ public:
 		bool is_current_block=false;	// if the current block is modified, it has to be exited as soon as possible
 
 		Bit32u ip_point=SegPhys(cs)+reg_eip;
-		ip_point=((paging.tlb.phys_page[ip_point>>12]-phys_page)<<12)+(ip_point&0xfff);
+		ip_point=((get_tlb_entry(ip_point)->phys_page-phys_page)<<12)+(ip_point&0xfff);
 		while (index>=0) {
 			Bitu map=0;
 			// see if there is still some code in the range
@@ -211,7 +217,7 @@ public:
 		addr&=4095;
 		if (host_readw(hostmem+addr)==(Bit16u)val) return false;
 		// see if there's code where we are writing to
-		if (!*(Bit16u*)&write_map[addr]) {
+		if (!((unaligned_half *)&write_map[addr])->val) {
 			if (!active_blocks) {
 				// no blocks left in this page, still delay the page releasing a bit
 				active_count--;
@@ -222,7 +228,7 @@ public:
 				invalidation_map=(Bit8u*)malloc(4096);
 				memset(invalidation_map,0,4096);
 			}
-			(*(Bit16u*)&invalidation_map[addr])+=0x101;
+			(((unaligned_half *)&invalidation_map[addr])->val)+=0x101;
 			if (InvalidateRange(addr,addr+1)) {
 				cpu.exception.which=SMC_CURRENT_BLOCK;
 				return true;
@@ -235,7 +241,7 @@ public:
 		addr&=4095;
 		if (host_readd(hostmem+addr)==(Bit32u)val) return false;
 		// see if there's code where we are writing to
-		if (!*(Bit32u*)&write_map[addr]) {
+		if (!((unaligned_word *)&write_map[addr])->val) {
 			if (!active_blocks) {
 				// no blocks left in this page, still delay the page releasing a bit
 				active_count--;
@@ -246,7 +252,7 @@ public:
 				invalidation_map=(Bit8u*)malloc(4096);
 				memset(invalidation_map,0,4096);
 			}
-			(*(Bit32u*)&invalidation_map[addr])+=0x1010101;
+			(((unaligned_word *)&invalidation_map[addr])->val)+=0x1010101;
 			if (InvalidateRange(addr,addr+3)) {
 				cpu.exception.which=SMC_CURRENT_BLOCK;
 				return true;
@@ -490,14 +496,13 @@ static void cache_closeblock(void) {
 		}
 	}
 	// advance the active block pointer
-	if (!block->cache.next) {
+	if (!block->cache.next || ((cache_code_start_ptr + CACHE_TOTAL - CACHE_MAXSIZE) < block->cache.next->cache.start)) {
 //		LOG_MSG("Cache full restarting");
 		cache.block.active=cache.block.first;
 	} else {
 		cache.block.active=block->cache.next;
 	}
 }
-
 
 // place an 8bit value into the cache
 static INLINE void cache_addb(Bit8u val) {
@@ -526,12 +531,6 @@ static INLINE void cache_addq(Bit64u val) {
 static void dyn_return(BlockReturn retcode,bool ret_exception);
 static void dyn_run_code(void);
 
-// cache memory pointers, to be malloc'd later
-static Bit8u * cache_code_start_ptr=NULL;
-static Bit8u * cache_code=NULL;
-static Bit8u * cache_code_link_blocks=NULL;
-static CacheBlockDynRec * cache_blocks=NULL;
-
 /* Define temporary pagesize so the MPROTECT case and the regular case share as much code as possible */
 #if (C_HAVE_MPROTECT)
 #define PAGESIZE_TEMP PAGESIZE
@@ -539,9 +538,13 @@ static CacheBlockDynRec * cache_blocks=NULL;
 #define PAGESIZE_TEMP 4096
 #endif
 
-static bool cache_initialized = false;
+#ifdef PSP
+#include <pspsuspend.h>
+#endif
 
-static void cache_init(bool enable) {
+bool cache_initialized = false;
+
+void cache_init(bool enable) {
 	Bits i;
 	if (enable) {
 		// see if cache is already initialized
@@ -551,14 +554,14 @@ static void cache_init(bool enable) {
 			// allocate the cache blocks memory
 			cache_blocks=(CacheBlockDynRec*)malloc(CACHE_BLOCKS*sizeof(CacheBlockDynRec));
 			if(!cache_blocks) E_Exit("Allocating cache_blocks has failed");
-			memset(cache_blocks,0,sizeof(CacheBlockDynRec)*CACHE_BLOCKS);
-			cache.block.free=&cache_blocks[0];
-			// initialize the cache blocks
-			for (i=0;i<CACHE_BLOCKS-1;i++) {
-				cache_blocks[i].link[0].to=(CacheBlockDynRec *)1;
-				cache_blocks[i].link[1].to=(CacheBlockDynRec *)1;
-				cache_blocks[i].cache.next=&cache_blocks[i+1];
-			}
+		}
+		memset(cache_blocks,0,sizeof(CacheBlockDynRec)*CACHE_BLOCKS);
+		cache.block.free=&cache_blocks[0];
+		// initialize the cache blocks
+		for (i=0;i<CACHE_BLOCKS-1;i++) {
+			cache_blocks[i].link[0].to=(CacheBlockDynRec *)1;
+			cache_blocks[i].link[1].to=(CacheBlockDynRec *)1;
+			cache_blocks[i].cache.next=&cache_blocks[i+1];
 		}
 		if (cache_code_start_ptr==NULL) {
 			// allocate the code cache memory
@@ -566,29 +569,40 @@ static void cache_init(bool enable) {
 			cache_code_start_ptr=(Bit8u*)VirtualAlloc(0,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP-1+PAGESIZE_TEMP,
 				MEM_COMMIT,PAGE_EXECUTE_READWRITE);
 			if (!cache_code_start_ptr)
-				cache_code_start_ptr=(Bit8u*)malloc(CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP-1+PAGESIZE_TEMP);
+				cache_code_start_ptr=(Bit8u*)_aligned_malloc(CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP-1+PAGESIZE_TEMP, PAGESIZE_TEMP);
+#elif defined(PSP)
+			int size;
+			void *addr;
+			if(!sceKernelVolatileMemLock(0, &addr, &size)) {
+				if(fixup) {
+					CACHE_TOTAL = (1024*1024*5);
+					cache_code_start_ptr=(Bit8u*)0x08300000;
+				}
+				else
+					cache_code_start_ptr=(Bit8u*)0x08400000;
+			}
 #else
-			cache_code_start_ptr=(Bit8u*)malloc(CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP-1+PAGESIZE_TEMP);
+			cache_code_start_ptr=(Bit8u*)memalign(CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP-1+PAGESIZE_TEMP, PAGESIZE_TEMP);
 #endif
 			if(!cache_code_start_ptr) E_Exit("Allocating dynamic cache failed");
-
-			// align the cache at a page boundary
-			cache_code=(Bit8u*)(((long)cache_code_start_ptr + PAGESIZE_TEMP-1) & ~(PAGESIZE_TEMP-1)); //MEM LEAK. store old pointer if you want to free it.
-
-			cache_code_link_blocks=cache_code;
-			cache_code=cache_code+PAGESIZE_TEMP;
+		}
+		cache_code = cache_code_start_ptr;
+		cache_code_link_blocks=cache_code;
+		cache_code=cache_code+PAGESIZE_TEMP;
 
 #if (C_HAVE_MPROTECT)
-			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_WRITE|PROT_READ|PROT_EXEC))
-				LOG_MSG("Setting excute permission on the code cache has failed");
+		if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_WRITE|PROT_READ|PROT_EXEC))
+			LOG_MSG("Setting excute permission on the code cache has failed");
 #endif
-			CacheBlockDynRec * block=cache_getblock();
-			cache.block.first=block;
-			cache.block.active=block;
-			block->cache.start=&cache_code[0];
-			block->cache.size=CACHE_TOTAL;
-			block->cache.next=0;						// last block in the list
-		}
+		CacheBlockDynRec * block=cache_getblock();
+		cache.block.first=block;
+		cache.block.active=block;
+		block->cache.start=&cache_code[0];
+		block->cache.size=CACHE_TOTAL;
+		block->cache.next=0;						// last block in the list
+		cache.pos=&cache_code_link_blocks[64];
+		core_dynrec.runcode=(BlockReturn (*)(Bit8u*))cache.pos;
+		dyn_run_code();
 		// setup the default blocks for block linkage returns
 		cache.pos=&cache_code_link_blocks[0];
 		link_blocks[0].cache.start=cache.pos;
@@ -599,10 +613,7 @@ static void cache_init(bool enable) {
 		// link code that returns with a special return code
 		dyn_return(BR_Link2,false);
 
-		cache.pos=&cache_code_link_blocks[64];
-		core_dynrec.runcode=(BlockReturn (*)(Bit8u*))cache.pos;
 //		link_blocks[1].cache.start=cache.pos;
-		dyn_run_code();
 
 		cache.free_pages=0;
 		cache.last_page=0;
@@ -616,6 +627,16 @@ static void cache_init(bool enable) {
 	}
 }
 
+void cache_free_memory(void) {
+	CacheBlockDynRec * list = cache.block.first;
+	do if(list->page.handler) list->page.handler->ClearRelease();
+	while(list = list->cache.next);
+#ifndef PSP
+	free(cache_code_start_ptr);
+#endif
+	cache_code_start_ptr = NULL;  // so the memory will be reallocated later
+}
+	
 static void cache_close(void) {
 /*	for (;;) {
 		if (cache.used_pages) {

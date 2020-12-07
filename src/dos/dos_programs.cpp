@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <string>
 #include <vector>
+#include <math.h>
 #include "programs.h"
 #include "support.h"
 #include "drives.h"
@@ -103,7 +104,7 @@ public:
 				}
 			return;
 		}
-	   
+#ifdef USE_SDL	  
 		// Show list of cdroms
 		if (cmd->FindExist("-cd",false)) {
 			int num = SDL_CDNumDrives();
@@ -113,7 +114,7 @@ public:
 			};
 			return;
 		}
-
+#endif
 		/* Parse the command line */
 		/* if the command line is empty show current mounts */
 		if (!cmd->GetCount()) {
@@ -490,8 +491,8 @@ private:
 public:
    
 	void Run(void) {
-		FILE *usefile_1=NULL;
-		FILE *usefile_2=NULL;
+		int usefile_1=-1;
+		int usefile_2=-1;
 		Bitu i; 
 		Bit32u floppysize;
 		Bit32u rombytesize_1=0;
@@ -541,11 +542,11 @@ public:
 
 				WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_OPEN"), temp_line.c_str());
 				Bit32u rombytesize;
-				FILE *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
-				if(usefile != NULL) {
+				int usefile = fileno(getFSFile(temp_line.c_str(), &floppysize, &rombytesize));
+				if(usefile != -1) {
 					if(diskSwap[i] != NULL) delete diskSwap[i];
 					diskSwap[i] = new imageDisk(usefile, (Bit8u *)temp_line.c_str(), floppysize, false);
-					if (usefile_1==NULL) {
+					if (usefile_1==-1) {
 						usefile_1=usefile;
 						rombytesize_1=rombytesize;
 					} else {
@@ -579,8 +580,8 @@ public:
 				Bits cfound_at=-1;
 				if (cart_cmd!="") {
 					/* read cartridge data into buffer */
-					fseek(usefile_1,0x200L, SEEK_SET);
-					fread(rombuf, 1, rombytesize_1-0x200, usefile_1);
+					lseek(usefile_1,0x200L, SEEK_SET);
+					read(usefile_1, rombuf, rombytesize_1-0x200);
 
 					char cmdlist[1024];
 					cmdlist[0]=0;
@@ -609,7 +610,7 @@ public:
 								diskSwap[dct]=NULL;
 							}
 						}
-						fclose(usefile_1);
+						close(usefile_1);
 						return;
 					} else {
 						while (clen!=0) {
@@ -641,7 +642,7 @@ public:
 									diskSwap[dct]=NULL;
 								}
 							}
-							fclose(usefile_1);
+							close(usefile_1);
 							return;
 						}
 					}
@@ -651,7 +652,7 @@ public:
 				void PreparePCJRCartRom(void);
 				PreparePCJRCartRom();
 
-				if (usefile_1==NULL) return;
+				if (usefile_1==-1) return;
 
 				Bit32u sz1,sz2;
 				FILE *tfile = getFSFile("system.rom", &sz1, &sz2, true);
@@ -664,28 +665,28 @@ public:
 					fclose(tfile);
 				}
 
-				if (usefile_2!=NULL) {
-					fseek(usefile_2, 0x0L, SEEK_SET);
-					fread(rombuf, 1, 0x200, usefile_2);
+				if (usefile_2!=-1) {
+					lseek(usefile_2, 0x0L, SEEK_SET);
+					read(usefile_2, rombuf, 0x200);
 					PhysPt romseg_pt=host_readw(&rombuf[0x1ce])<<4;
 
 					/* read cartridge data into buffer */
-					fseek(usefile_2, 0x200L, SEEK_SET);
-					fread(rombuf, 1, rombytesize_2-0x200, usefile_2);
-					fclose(usefile_2);
+					lseek(usefile_2, 0x200L, SEEK_SET);
+					read(usefile_2, rombuf, rombytesize_2-0x200);
+					close(usefile_2);
 
 					/* write cartridge data into ROM */
 					for(i=0;i<rombytesize_2-0x200;i++) phys_writeb(romseg_pt+i,rombuf[i]);
 				}
 
-				fseek(usefile_1, 0x0L, SEEK_SET);
-				fread(rombuf, 1, 0x200, usefile_1);
+				lseek(usefile_1, 0x0L, SEEK_SET);
+				read(usefile_1, rombuf, 0x200);
 				Bit16u romseg=host_readw(&rombuf[0x1ce]);
 
 				/* read cartridge data into buffer */
-				fseek(usefile_1,0x200L, SEEK_SET);
-				fread(rombuf, 1, rombytesize_1-0x200, usefile_1);
-				fclose(usefile_1);
+				lseek(usefile_1,0x200L, SEEK_SET);
+				read(usefile_1,rombuf, rombytesize_1-0x200);
+				close(usefile_1);
 
 				/* write cartridge data into ROM */
 				for(i=0;i<rombytesize_1-0x200;i++) phys_writeb((romseg<<4)+i,rombuf[i]);
@@ -998,6 +999,9 @@ public:
 			while(cmd->FindCommand(paths.size() + 2, temp_line) && temp_line.size()) {
 				
 				struct stat test;
+#ifdef PSP
+				if (temp_line == "msstor0:"); else
+#endif
 				if (stat(temp_line.c_str(),&test)) {
 					//See if it works if the ~ are written out
 					std::string homedir(temp_line);
@@ -1046,31 +1050,31 @@ public:
 
 			if(fstype=="fat") {
 				if (imgsizedetect) {
-					FILE * diskfile = fopen(temp_line.c_str(), "rb+");
+					int diskfile = open(temp_line.c_str(), O_RDONLY);
 					if(!diskfile) {
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 						return;
 					}
-					fseek(diskfile, 0L, SEEK_END);
-					Bit32u fcsize = (Bit32u)(ftell(diskfile) / 512L);
+					Bit32u fcsize = lseek(diskfile, 0L, SEEK_END) / 512L;
 					Bit8u buf[512];
-					fseek(diskfile, 0L, SEEK_SET);
-					if (fread(buf,sizeof(Bit8u),512,diskfile)<512) {
-						fclose(diskfile);
+					lseek(diskfile, 0L, SEEK_SET);
+					if (read(diskfile,buf,sizeof(Bit8u)*512)<512) {
+						close(diskfile);
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 						return;
 					}
-					fclose(diskfile);
+					close(diskfile);
 					if ((buf[510]!=0x55) || (buf[511]!=0xaa)) {
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
 						return;
 					}
 					Bitu sectors=(Bitu)(fcsize/(16*63));
 					if (sectors*16*63!=fcsize) {
-						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
-						return;
-					}
-					sizes[0]=512;	sizes[1]=63;	sizes[2]=16;	sizes[3]=sectors;
+						sizes[0]=512;
+						sizes[2]=ceilf(fcsize/(62.0f*1024.0f));
+						sizes[1]=ceilf(fcsize/(1024.0f*sizes[2]));
+						sizes[3]=fcsize/(sizes[1]*sizes[2]);
+					} else sizes[0]=512;	sizes[1]=63;	sizes[2]=16;	sizes[3]=sectors;
 					LOG_MSG("autosized image file: %d:%d:%d:%d",sizes[0],sizes[1],sizes[2],sizes[3]);
 				}
 
@@ -1081,9 +1085,8 @@ public:
 				}
 			} else if (fstype=="iso") {
 			} else {
-				FILE *newDisk = fopen(temp_line.c_str(), "rb+");
-				fseek(newDisk,0L, SEEK_END);
-				imagesize = (ftell(newDisk) / 1024);
+				int newDisk = open(temp_line.c_str(), O_RDONLY);
+				imagesize = lseek(newDisk,0L, SEEK_END)/1024L;
 
 				newImage = new imageDisk(newDisk, (Bit8u *)temp_line.c_str(), imagesize, (imagesize > 2880));
 				if(imagesize>2880) newImage->Set_Geometry(sizes[2],sizes[3],sizes[1],sizes[0]);
@@ -1185,6 +1188,7 @@ void IMGMOUNT_ProgramStart(Program * * make) {
 	*make=new IMGMOUNT;
 }
 
+#ifdef USE_ALT_KEYB
 
 Bitu DOS_SwitchKeyboardLayout(const char* new_layout);
 Bitu DOS_LoadKeyboardLayout(const char * layoutname, Bit32s codepage, const char * codepagefile);
@@ -1248,7 +1252,226 @@ void KEYB::Run(void) {
 static void KEYB_ProgramStart(Program * * make) {
 	*make=new KEYB;
 }
+#endif
 
+#ifdef PSP
+#include <pspctrl.h>
+#include <psppower.h>
+#include "keyboard.h"
+
+// INPUTMAP
+
+extern keymap inputmap[];
+extern bool control_map;
+extern bool joy_state;
+typedef struct keyinfo {
+	KBD_KEYS key;
+	char *ascii;
+} keyinfo;
+
+class INPUTMAP : public Program {
+public:
+	void Run(void);
+private:
+	static const char *button[]; 
+	static const keyinfo chartab[];
+};
+
+const keyinfo INPUTMAP::chartab[] = 
+	{{KBD_1,"1"},{KBD_2,"2"},{KBD_3,"3"},{KBD_4,"4"},{KBD_5,"5"},{KBD_6,"6"},{KBD_7,"7"},{KBD_8,"8"},{KBD_9,"9"},{KBD_0,"0"},
+	{KBD_q,"q"},{KBD_w,"w"},{KBD_e,"e"},{KBD_r,"r"},{KBD_t,"t"},{KBD_y,"y"},{KBD_u,"u"},{KBD_i,"i"},{KBD_o,"o"},{KBD_p,"p"},
+	{KBD_a,"a"},{KBD_s,"s"},{KBD_d,"d"},{KBD_f,"f"},{KBD_g,"g"},{KBD_h,"h"},{KBD_j,"j"},{KBD_k,"k"},{KBD_l,"l"},{KBD_z,"z"},
+	{KBD_x,"x"},{KBD_c,"c"},{KBD_v,"v"},{KBD_b,"b"},{KBD_n,"n"},{KBD_m,"m"},
+	{KBD_f1,"f1"},{KBD_f2,"f2"},{KBD_f3,"f3"},{KBD_f4,"f4"},{KBD_f5,"f5"},{KBD_f6,"f6"},{KBD_f7,"f7"},
+	{KBD_f8,"f8"},{KBD_f9,"f9"},{KBD_f10,"f10"},{KBD_f11,"f11"},{KBD_f12,"f12"},
+	{KBD_esc,"esc"},{KBD_tab,"tab"},{KBD_backspace,"bs"},{KBD_enter,"enter"},{KBD_space,"space"},
+	{KBD_leftalt,"lalt"},{KBD_rightalt,"ralt"},{KBD_leftctrl,"lctrl"},{KBD_rightctrl,"rctrl"},{KBD_leftshift,"lshift"},{KBD_rightshift,"rshift"},
+	{KBD_capslock,"caplock"},{KBD_scrolllock,"scrllock"},{KBD_numlock,"numlock"},
+	{KBD_grave,"`"},{KBD_minus,"-"},{KBD_equals,"="},{KBD_backslash,"\\"},{KBD_leftbracket,"["},{KBD_rightbracket,"]"},
+	{KBD_semicolon,";"},{KBD_quote,"'"},{KBD_period,"."},{KBD_comma,","},{KBD_slash,"/"},
+	{KBD_insert,"insert"},{KBD_home,"home"},{KBD_pageup,"pgup"},{KBD_delete,"del"},{KBD_end,"end"},{KBD_pagedown,"pgdn"},
+	{KBD_left,"left"},{KBD_up,"up"},{KBD_down,"down"},{KBD_right,"right"},
+	{KBD_kp1,"n1"},{KBD_kp2,"n2"},{KBD_kp3,"n3"},{KBD_kp4,"n4"},{KBD_kp5,"n5"},{KBD_kp6,"n6"},{KBD_kp7,"n7"},{KBD_kp8,"n8"},{KBD_kp9,"n9"},{KBD_kp0,"n9"},
+	{KBD_kpdivide,"n/"},{KBD_kpmultiply,"n*"},{KBD_kpminus,"n-"},{KBD_kpplus,"n+"},{KBD_kpenter,"nenter"},{KBD_kpperiod,"n."},
+	{KBD_button1,"button1"},{KBD_button2,"button2"},{KBD_LAST, NULL}};
+
+const char *INPUTMAP::button[] = {"select", "start", "up", "right", "down", "left", "triangle", "circle", "cross", "square", "ltrigger", "rtrigger", NULL}; 
+
+
+void INPUTMAP::Run(void) {
+	if(!cmd->GetCount()) {
+		WriteOut(MSG_Get("PROGRAM_INPUTMAP_USAGE"));
+		return;
+	}
+	if(cmd->FindExist("exec", true)) {
+		Bitu commandNr = 1;
+		if (cmd->FindCommand(commandNr++,temp_line)) {
+			// get Filename
+			char filename[128];
+			strncpy(filename,temp_line.c_str(),128);
+			// Setup commandline
+			bool ok;
+			char args[256];
+			args[0] = 0;
+			do {
+				ok = cmd->FindCommand(commandNr++,temp_line);
+				strncat(args,temp_line.c_str(),256);
+				strncat(args," ",256);
+			} while (ok);			
+			// Use shell to start program
+			DOS_Shell shell;
+			control_map = true;
+			shell.Execute(filename,args);
+			control_map = false;
+			return;
+		}
+	} else if(cmd->FindExist("analog", true)) {
+		if(cmd->FindExist("mouse", true)) joy_state=false;
+		else if(cmd->FindExist("joystick", true)) joy_state=true;
+		else WriteOut(MSG_Get("PROGRAM_INPUTMAP_INVALID"));
+		return;
+	} else {
+		std::string key;
+		for(Bitu i=0; button[i]; i++) {
+			if(cmd->FindString(button[i], key)==true) {
+				for(Bitu j=0; chartab[j].ascii; j++) {
+					if(key == chartab[j].ascii) {
+						if(chartab[j].key == KBD_LAST) break;
+						inputmap[i].key = chartab[j].key;
+						WriteOut(MSG_Get("PROGRAM_INPUTMAP_MAPPED"), chartab[j].ascii, button[i]);
+						return;
+					}
+				}
+				break;
+			}
+		}
+	}
+	WriteOut(MSG_Get("PROGRAM_INPUTMAP_INVALID"));
+}
+
+static void INPUTMAP_ProgramStart(Program * * make) {
+	*make = new INPUTMAP;
+}
+
+class SYSOPT : public Program {
+public:
+	void Run(void);
+};
+
+void SYSOPT::Run(void) {
+	bool set = false;
+	if(cmd->GetCount() == 2) set = true;
+	if(cmd->FindExist("clock")) {
+		if(set == true) {
+			int val;
+			cmd->FindInt("clock", val);
+			if((val > 333) || (val < 200)) goto error;
+			scePowerSetClockFrequency(val, val, val>>1);
+		}
+		WriteOut(MSG_Get("PROGRAM_SYSOPT_CLOCK"),scePowerGetCpuClockFrequency());
+		return;
+	}
+error:
+	WriteOut(MSG_Get("PROGRAM_SYSOPT_USAGE"));
+}
+
+static void SYSOPT_ProgramStart(Program * * make) {
+	*make = new SYSOPT;
+}
+
+#include <pspdebug.h>
+#include <stdarg.h>
+extern profile_regs_ll regs;
+extern bool profile, fixup;
+
+class PROF : public Program {
+public:
+	void Run(void);
+private:
+	static void shell_fprintf(Bit16u handle, const char *format,...) {
+		char buf[1024];
+		va_list msg;
+	
+		va_start(msg,format);
+		vsprintf(buf,format,msg);
+		va_end(msg);
+
+		Bit16u size=strlen(buf);
+		DOS_WriteFile(handle,(Bit8u *)buf,&size);
+	}
+};
+
+void PROF::Run(void) {
+	Bitu commandNr = 1;
+	std::string output = "";
+	cmd->FindString("-o", output, true);
+	if (cmd->FindCommand(commandNr++,temp_line)) {
+		// get Filename
+		char filename[128];
+		strncpy(filename,temp_line.c_str(),128);
+		// Setup commandline
+		bool ok;
+		char args[256];
+		args[0] = 0;
+		do {
+			ok = cmd->FindCommand(commandNr++,temp_line);
+			strncat(args,temp_line.c_str(),256);
+			strncat(args," ",256);
+		} while (ok);			
+		// Use shell to start program
+		DOS_Shell shell;
+		profile = true;
+		memset(&regs, '\0', sizeof(profile_regs_ll));
+		pspDebugProfilerClear();
+		pspDebugProfilerEnable();
+		shell.Execute(filename,args);
+		profile = false;
+		pspDebugProfilerDisable();
+		
+		Bit16u handle=STDOUT;
+		if(output != "")
+		{
+			char filename[255];
+			strncpy(filename, output.c_str(), 255);
+			DOS_CreateFile(filename, 0, &handle);
+		}
+		unsigned long long stall = regs.internal + regs.memory + regs.copz + regs.vfpu;
+		shell_fprintf(handle,"\n********** Profile ***********\n");
+        	shell_fprintf(handle,"systemck       : %20llu [cycles]\n", regs.systemck);
+	        shell_fprintf(handle,"cpu ck         : %20llu [cycles]\n", regs.cpuck);
+        	shell_fprintf(handle,"stall          : %20llu [cycles]\n", stall);
+	        shell_fprintf(handle,"+(internal)    : %20llu [cycles]\n", regs.internal);
+        	shell_fprintf(handle,"+--(memory)    : %20llu [cycles]\n", regs.memory);
+	        shell_fprintf(handle,"+----(COPz)    : %20llu [cycles]\n", regs.copz);
+        	shell_fprintf(handle,"+----(VFPU)    : %20llu [cycles]\n", regs.vfpu);
+	        shell_fprintf(handle,"sleep          : %20llu [cycles]\n", regs.sleep);
+        	shell_fprintf(handle,"bus access     : %20llu [cycles]\n", regs.bus_access);
+	        shell_fprintf(handle,"uncached load  : %20llu [times]\n", regs.uncached_load);
+        	shell_fprintf(handle,"uncached store : %20llu [times]\n", regs.uncached_store);
+	        shell_fprintf(handle,"cached load    : %20llu [times]\n", regs.cached_load);
+        	shell_fprintf(handle,"cached store   : %20llu [times]\n", regs.cached_store);
+	        shell_fprintf(handle,"I cache miss   : %20llu [times]\n", regs.i_miss);
+        	shell_fprintf(handle,"D cache miss   : %20llu [times]\n", regs.d_miss);
+	        shell_fprintf(handle,"D cache wb     : %20llu [times]\n", regs.d_writeback);
+        	shell_fprintf(handle,"COP0 inst.     : %20llu [inst.]\n", regs.cop0_inst);
+	        shell_fprintf(handle,"FPU  inst.     : %20llu [inst.]\n", regs.fpu_inst);
+        	shell_fprintf(handle,"VFPU inst.     : %20llu [inst.]\n", regs.vfpu_inst);
+	        shell_fprintf(handle,"local bus      : %20llu [cycles]\n\n", regs.local_bus);
+		shell_fprintf(handle,"exec inst      : %20llu [inst.]\n", regs.cpuck - (stall + regs.sleep));
+		shell_fprintf(handle,"cached mem acc : %20llu [times]\n", regs.cached_load + regs.cached_store);
+		shell_fprintf(handle,"I$ miss rateck : %20llf [%%]\n", ((double)regs.i_miss / (double)(regs.cpuck - (stall + regs.sleep)))*100);
+		shell_fprintf(handle,"D$ miss ratenum: %20llf [%%]\n", ((double)regs.d_miss / (double)(regs.cached_load + regs.cached_store))*100);
+		shell_fprintf(handle,"D$ miss rateck : %20llf [%%]\n", ((double)regs.d_miss / (double)(regs.cpuck - (stall + regs.sleep)))*100);
+		shell_fprintf(handle,"bus util       : %20llf [%%]\n", ((double)regs.bus_access / (double)regs.systemck)*100);
+		shell_fprintf(handle,"cycle per inst : %20llf [cpi]\n", (double)regs.cpuck /  (double)(regs.cpuck - (stall + regs.sleep)));
+		
+	}
+}
+
+static void PROF_ProgramStart(Program * * make) {
+	*make = new PROF;
+}
+#endif
 
 void DOS_SetupPrograms(void) {
 	/*Add Messages */
@@ -1426,7 +1649,7 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_IMGMOUNT_MOUNT_NUMBER","Drive number %d mounted as %s\n");
 	MSG_Add("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE", "The image must be on a host or local drive.\n");
 	MSG_Add("PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES", "Using multiple files is only supported for cue/iso images.\n");
-
+#ifdef USE_ALT_KEYB
 	MSG_Add("PROGRAM_KEYB_INFO","Codepage %i has been loaded\n");
 	MSG_Add("PROGRAM_KEYB_SHOWHELP",
 		"\033[32;1mKEYB\033[0m [keyboard layout ID[ codepage number[ codepage file]]]\n\n"
@@ -1440,6 +1663,21 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_KEYB_INVALIDFILE","Keyboard file %s invalid\n");
 	MSG_Add("PROGRAM_KEYB_LAYOUTNOTFOUND","No layout in %s for codepage %i\n");
 	MSG_Add("PROGRAM_KEYB_INVCPFILE","None or invalid codepage file for layout %s\n\n");
+	PROGRAMS_MakeFile("KEYB.COM", KEYB_ProgramStart);
+#endif
+#ifdef PSP
+	MSG_Add("PROGRAM_INPUTMAP_MAPPED", "Key %s is mapped to button %s.\n");
+	MSG_Add("PROGRAM_INPUTMAP_INVALID", "Invalid arguments.\n");
+	MSG_Add("PROGRAM_INPUTMAP_USAGE", "usage: inputmap [option]\nexec <cmdline>: run cmdline with input map\nanalog <mode>: mode sets mouse or joystick\n"
+		"<button> <keycode>: map button to keycode\n");
+
+	MSG_Add("PROGRAM_SYSOPT_CLOCK", "CPU Clock is %dMhz\n");
+	MSG_Add("PROGRAM_SYSOPT_USAGE", "usage: sysopt [option]\nclock <rate>: get clock rate or set clock to rate, rate must be between 200 and 333\n");
+	PROGRAMS_MakeFile("INPUTMAP.COM",INPUTMAP_ProgramStart);
+	PROGRAMS_MakeFile("SYSOPT.COM",SYSOPT_ProgramStart);
+	if(fixup)
+		PROGRAMS_MakeFile("PROF.COM",PROF_ProgramStart);
+#endif
 
 	/*regular setup*/
 	PROGRAMS_MakeFile("MOUNT.COM",MOUNT_ProgramStart);
@@ -1449,5 +1687,4 @@ void DOS_SetupPrograms(void) {
 	PROGRAMS_MakeFile("INTRO.COM",INTRO_ProgramStart);
 	PROGRAMS_MakeFile("BOOT.COM",BOOT_ProgramStart);
 	PROGRAMS_MakeFile("IMGMOUNT.COM", IMGMOUNT_ProgramStart);
-	PROGRAMS_MakeFile("KEYB.COM", KEYB_ProgramStart);
 }

@@ -13,13 +13,25 @@
 #include "dosbox.h"
 #include "mem.h"
 #include "mixer.h"
+#ifdef USE_SDL
 #include "SDL.h"
 #include "SDL_thread.h"
 
 #if defined(C_SDL_SOUND)
 #include "SDL_sound.h"
 #endif
-
+#else
+#define MSF_TO_FRAMES(M, S, F)	((M)*60*CD_FPS+(S)*CD_FPS+(F))
+#define CD_FPS	75
+#define FRAMES_TO_MSF(f, M,S,F)	{					\
+	int value = f;							\
+	*(F) = value%CD_FPS;						\
+	value /= CD_FPS;						\
+	*(S) = value%60;						\
+	value /= 60;							\
+	*(M) = value;							\
+}
+#endif
 #define RAW_SECTOR_SIZE		2352
 #define COOKED_SECTOR_SIZE	2048
 
@@ -59,7 +71,7 @@ public:
 	
 	virtual void	InitNewMedia		(void) {};
 };	
-
+#ifdef USE_SDL
 class CDROM_Interface_SDL : public CDROM_Interface
 {
 public:
@@ -87,7 +99,7 @@ private:
 	int		driveID;
 	Uint32	oldLeadOut;
 };
-
+#endif
 class CDROM_Interface_Fake : public CDROM_Interface
 {
 public:
@@ -180,7 +192,9 @@ static	void	CDAudioCallBack(Bitu len);
 static  struct imagePlayer {
 		CDROM_Interface_Image *cd;
 		MixerChannel   *channel;
+#ifdef USE_SDL
 		SDL_mutex 	*mutex;
+#endif
 		Bit8u   buffer[8192];
 		int     bufLen;
 		int     currFrame;	

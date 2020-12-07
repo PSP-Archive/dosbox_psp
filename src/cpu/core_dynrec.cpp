@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 #if defined (WIN32)
 #include <windows.h>
@@ -48,13 +49,28 @@
 #include "debug.h"
 #include "paging.h"
 #include "inout.h"
-#include "lazyflags.h"
+
+#ifdef PSP
+#define __cache_lock(addr) 	__builtin_allegrex_cache(0x1f, (Bitu)addr);
+#define __cache_unlock(addr) 	__builtin_allegrex_cache(0x14, (Bitu)addr); \
+				__builtin_allegrex_cache(0x16, (Bitu)addr);
+#else
+#define __cache_lock(addr)
+#define __cache_unlock(addr)
+#endif
 
 #define CACHE_MAXSIZE	(4096)
+#ifdef PSP
+static int CACHE_TOTAL = (1024*1024*4);
+extern bool fixup;
+#define CACHE_BLOCKS		(45*1024)
+#define CACHE_ALIGN		(4)
+#else
 #define CACHE_TOTAL		(1024*1024*8)
-#define CACHE_PAGES		(512)
 #define CACHE_BLOCKS	(128*1024)
 #define CACHE_ALIGN		(16)
+#endif
+#define CACHE_PAGES		(512)
 #define DYN_HASH_SHIFT	(4)
 #define DYN_PAGE_HASH	(4096>>DYN_HASH_SHIFT)
 #define DYN_LINKS		(16)
@@ -112,7 +128,8 @@ enum BlockReturn {
 #endif
 	BR_Iret,
 	BR_CallBack,
-	BR_SMCBlock
+	BR_SMCBlock,
+	BR_NoESP	//Don't save ESP otherwise BR_Normal
 };
 
 // identificator to signal self-modification of the currently executed block
@@ -130,18 +147,19 @@ static struct {
 	Bit32u protected_regs[8];	// space to save/restore register values
 } core_dynrec;
 
+#include "lazyflags.h"
 
 #include "core_dynrec/cache.h"
 
-#define X86			0x01
+#define X86		0x01
 #define X86_64		0x02
-#define MIPSEL32	0x03
+#define MIPSEL		0x03
 
 #if C_TARGETCPU == X86_64
 #include "core_dynrec/risc_x64.h"
 #elif C_TARGETCPU == X86
 #include "core_dynrec/risc_x86.h"
-#elif C_TARGETCPU == MIPSEL32
+#elif C_TARGETCPU == MIPSEL
 #include "core_dynrec/risc_mipsel32.h"
 #endif
 
@@ -152,7 +170,7 @@ CacheBlockDynRec * LinkBlocks(BlockReturn ret) {
 	// the last instruction was a control flow modifying instruction
 	Bitu temp_ip=SegPhys(cs)+reg_eip;
 	Bitu temp_page=temp_ip >> 12;
-	CodePageHandlerDynRec * temp_handler=(CodePageHandlerDynRec *)paging.tlb.handler[temp_page];
+	CodePageHandlerDynRec * temp_handler=(CodePageHandlerDynRec *)get_tlb_entry(temp_ip)->handler;
 	if (temp_handler->flags & PFLAG_HASCODE) {
 		// see if the target is an already translated block
 		block=temp_handler->FindCacheBlock(temp_ip & 4095);
@@ -203,7 +221,7 @@ Bits CPU_Core_Dynrec_Run(void) {
 			// unless the instruction is known to be modified
 			if (!chandler->invalidation_map || (chandler->invalidation_map[ip_point&4095]<4)) {
 				// translate up to 32 instructions
-				block=CreateCacheBlock(chandler,ip_point,32);
+				block=CreateCacheBlock(chandler,ip_point,28);
 			} else {
 				// let the normal core handle this instruction to avoid zero-sized blocks
 				Bitu old_cycles=CPU_Cycles;
@@ -222,8 +240,10 @@ run_block:
 		cache.block.running=0;
 		// now we're ready to run the dynamic code block
 //		BlockReturn ret=((BlockReturn (*)(void))(block->cache.start))();
+		__cache_lock(&lflags);
 		BlockReturn ret=core_dynrec.runcode(block->cache.start);
-
+		__cache_unlock(&lflags);
+		
 		switch (ret) {
 		case BR_Iret:
 #if C_HEAVY_DEBUG
@@ -235,6 +255,7 @@ run_block:
 			return CBRET_NONE;
 
 		case BR_Normal:
+		case BR_NoESP:
 			// the block was exited due to a non-predictable control flow
 			// modifying instruction (like ret) or some nontrivial cpu state
 			// changing instruction (for example switch to/from pmode),

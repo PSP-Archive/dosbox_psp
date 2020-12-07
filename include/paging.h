@@ -32,7 +32,19 @@ class PageDirectory;
 
 #define MEM_PAGE_SIZE	(4096)
 #define XMS_START		(0x110)
+#ifndef PSP
 #define TLB_SIZE		(1024*1024)
+#define TLB_BANKS		0
+#define BANK_SHIFT		32
+#define BANK_MASK		0
+#define PAGING_LINKS 		(128*1024/4)
+#else 
+#define TLB_SIZE		65536	// This must a power of 2 and greater then LINK_START
+#define BANK_SHIFT		28
+#define BANK_MASK		0xffff // always the same as TLB_SIZE-1?
+#define TLB_BANKS		((1024*1024/TLB_SIZE)-1)
+#define PAGING_LINKS 		(10*1024/4)
+#endif
 
 #define PFLAG_READABLE		0x1
 #define PFLAG_WRITEABLE		0x2
@@ -42,9 +54,6 @@ class PageDirectory;
 #define PFLAG_INIT			0x20			//No dynamic code can be generated here
 
 #define LINK_START	((1024+64)/4)			//Start right after the HMA
-
-//Allow 128 mb of memory to be linked
-#define PAGING_LINKS (128*1024/4)
 
 class PageHandler {
 public:
@@ -66,6 +75,13 @@ public:
 	Bitu flags;
 };
 
+typedef struct {
+	HostPt read;
+	HostPt write;
+	PageHandler * handler;
+	Bit32u	phys_page;
+} tlb_entry;
+
 /* Some other functions */
 void PAGING_Enable(bool enabled);
 bool PAGING_Enabled(void);
@@ -80,6 +96,7 @@ void PAGING_UnlinkPages(Bitu lin_page,Bitu pages);
 /* This maps the page directly, only use when paging is disabled */
 void PAGING_MapPage(Bitu lin_page,Bitu phys_page);
 bool PAGING_MakePhysPage(Bitu & page);
+void PAGING_InitTLBBank(tlb_entry **bank);
 
 void MEM_SetLFB( Bitu page, Bitu pages, PageHandler *handler);
 void MEM_SetPageHandler(Bitu phys_page, Bitu pages, PageHandler * handler);
@@ -120,7 +137,6 @@ struct X86_PageEntryBlock{
 #pragma pack ()
 #endif
 
-
 union X86PageEntry {
 	Bit32u load;
 	X86_PageEntryBlock block;
@@ -133,12 +149,8 @@ struct PagingBlock {
 		Bitu page;
 		PhysPt addr;
 	} base;
-	struct {
-		HostPt read[TLB_SIZE];
-		HostPt write[TLB_SIZE];
-		PageHandler * handler[TLB_SIZE];
-		Bit32u	phys_page[TLB_SIZE];
-	} tlb;
+	tlb_entry tlb[TLB_SIZE];
+	tlb_entry *tlb_banks[TLB_BANKS];
 	struct {
 		Bitu used;
 		Bit32u entries[PAGING_LINKS];
@@ -153,16 +165,6 @@ extern PagingBlock paging;
 
 PageHandler * MEM_GetPageHandler(Bitu phys_page);
 
-/* Use this helper function to access linear addresses in readX/writeX functions */
-INLINE PhysPt PAGING_GetPhysicalPage(PhysPt linePage) {
-	return (paging.tlb.phys_page[linePage>>12]<<12);
-}
-
-INLINE PhysPt PAGING_GetPhysicalAddress(PhysPt linAddr) {
-	return (paging.tlb.phys_page[linAddr>>12]<<12)|(linAddr&0xfff);
-}
-
-
 /* Unaligned address handlers */
 Bit16u mem_unalignedreadw(PhysPt address);
 Bit32u mem_unalignedreadd(PhysPt address);
@@ -176,52 +178,82 @@ bool mem_unalignedwrited_checked_x86(PhysPt address,Bit32u val);
 
 /* Special inlined memory reading/writing */
 
+INLINE tlb_entry *get_tlb_entry(PhysPt address) {
+	Bitu index=(address>>12);
+	if (GCC_UNLIKELY(TLB_BANKS && (index > TLB_SIZE))) {
+		Bitu bank=(address>>BANK_SHIFT) - 1;
+		if (GCC_UNLIKELY(!paging.tlb_banks[bank]))
+			PAGING_InitTLBBank(&paging.tlb_banks[bank]);
+		return &paging.tlb_banks[bank][index & BANK_MASK];
+	}
+	return &paging.tlb[index];
+}
+
+/* Use this helper function to access linear addresses in readX/writeX functions */
+INLINE PhysPt PAGING_GetPhysicalPage(PhysPt linePage) {
+	tlb_entry *entry = get_tlb_entry(linePage);
+	return (entry->phys_page<<12);
+}
+
+INLINE PhysPt PAGING_GetPhysicalAddress(PhysPt linAddr) {
+	tlb_entry *entry = get_tlb_entry(linAddr);
+	return (entry->phys_page<<12)|(linAddr&0xfff);
+}
+
+/* the complier will hopefully optimize this nicely */
+
 INLINE Bit8u mem_readb_inline(PhysPt address) {
 	Bitu index=(address>>12);
-	if (paging.tlb.read[index]) return host_readb(paging.tlb.read[index]+address);
-	else return (Bit8u)paging.tlb.handler[index]->readb(address);
+	tlb_entry *entry = get_tlb_entry(address);
+	if (entry->read) return host_readb(entry->read+address);
+	else return (Bit8u)entry->handler->readb(address);
 }
 
 INLINE Bit16u mem_readw_inline(PhysPt address) {
 	if (!(address & 1)) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.read[index]) return host_readw(paging.tlb.read[index]+address);
-		else return (Bit16u) paging.tlb.handler[index]->readw(address);
+		if (entry->read) return host_readw(entry->read+address);
+		else return (Bit16u) entry->handler->readw(address);
 	} else return mem_unalignedreadw(address);
 }
 
 INLINE Bit32u mem_readd_inline(PhysPt address) {
 	if (!(address & 3)) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.read[index]) return host_readd(paging.tlb.read[index]+address);
-		else return paging.tlb.handler[index]->readd(address);
+		if (entry->read) return host_readd(entry->read+address);
+		else return entry->handler->readd(address);
 	} else return mem_unalignedreadd(address);
 }
 
 INLINE void mem_writeb_inline(PhysPt address,Bit8u val) {
 	Bitu index=(address>>12);
+	tlb_entry *entry = get_tlb_entry(address);
 
-	if (paging.tlb.write[index]) host_writeb(paging.tlb.write[index]+address,val);
-	else paging.tlb.handler[index]->writeb(address,val);
+	if (entry->write) host_writeb(entry->write+address,val);
+	else entry->handler->writeb(address,val);
 }
 
 INLINE void mem_writew_inline(PhysPt address,Bit16u val) {
 	if (!(address & 1)) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.write[index]) host_writew(paging.tlb.write[index]+address,val);
-		else paging.tlb.handler[index]->writew(address,val);
+		if (entry->write) host_writew(entry->write+address,val);
+		else entry->handler->writew(address,val);
 	} else mem_unalignedwritew(address,val);
 }
 
 INLINE void mem_writed_inline(PhysPt address,Bit32u val) {
 	if (!(address & 3)) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.write[index]) host_writed(paging.tlb.write[index]+address,val);
-		else paging.tlb.handler[index]->writed(address,val);
+		if (entry->write) host_writed(entry->write+address,val);
+		else entry->handler->writed(address,val);
 	} else mem_unalignedwrited(address,val);
 }
 
@@ -229,49 +261,54 @@ INLINE void mem_writed_inline(PhysPt address,Bit32u val) {
 INLINE Bit16u mem_readw_dyncorex86(PhysPt address) {
 	if ((address & 0xfff)<0xfff) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.read[index]) return host_readw(paging.tlb.read[index]+address);
-		else return (Bit16u)paging.tlb.handler[index]->readw(address);
+		if (entry->read) return host_readw(entry->read+address);
+		else return (Bit16u)entry->handler->readw(address);
 	} else return mem_unalignedreadw(address);
 }
 
 INLINE Bit32u mem_readd_dyncorex86(PhysPt address) {
 	if ((address & 0xfff)<0xffd) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.read[index]) return host_readd(paging.tlb.read[index]+address);
-		else return paging.tlb.handler[index]->readd(address);
+		if (entry->read) return host_readd(entry->read+address);
+		else return entry->handler->readd(address);
 	} else return mem_unalignedreadd(address);
 }
 
 INLINE void mem_writew_dyncorex86(PhysPt address,Bit16u val) {
 	if ((address & 0xfff)<0xfff) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.write[index]) host_writew(paging.tlb.write[index]+address,val);
-		else paging.tlb.handler[index]->writew(address,val);
+		if (entry->write) host_writew(entry->write+address,val);
+		else entry->handler->writew(address,val);
 	} else mem_unalignedwritew(address,val);
 }
 
 INLINE void mem_writed_dyncorex86(PhysPt address,Bit32u val) {
 	if ((address & 0xfff)<0xffd) {
 		Bitu index=(address>>12);
+		tlb_entry *entry = get_tlb_entry(address);
 
-		if (paging.tlb.write[index]) host_writed(paging.tlb.write[index]+address,val);
-		else paging.tlb.handler[index]->writed(address,val);
+		if (entry->write) host_writed(entry->write+address,val);
+		else entry->handler->writed(address,val);
 	} else mem_unalignedwrited(address,val);
 }
 
 
 INLINE bool mem_readb_checked_x86(PhysPt address, Bit8u * val) {
 	Bitu index=(address>>12);
-	if (paging.tlb.read[index]) {
-		*val=host_readb(paging.tlb.read[index]+address);
+	tlb_entry *entry = get_tlb_entry(address);
+	if (entry->read) {
+		*val=host_readb(entry->read+address);
 		return false;
 	} else {
 		Bitu uval;
 		bool retval;
-		retval=paging.tlb.handler[index]->readb_checked(address, &uval);
+		retval=entry->handler->readb_checked(address, &uval);
 		*val=(Bit8u)uval;
 		return retval;
 	}
@@ -280,13 +317,14 @@ INLINE bool mem_readb_checked_x86(PhysPt address, Bit8u * val) {
 INLINE bool mem_readw_checked_x86(PhysPt address, Bit16u * val) {
 	if ((address & 0xfff)<0xfff) {
 		Bitu index=(address>>12);
-		if (paging.tlb.read[index]) {
-			*val=host_readw(paging.tlb.read[index]+address);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->read) {
+			*val=host_readw(entry->read+address);
 			return false;
 		} else {
 			Bitu uval;
 			bool retval;
-			retval=paging.tlb.handler[index]->readw_checked(address, &uval);
+			retval=entry->handler->readw_checked(address, &uval);
 			*val=(Bit16u)uval;
 			return retval;
 		}
@@ -297,13 +335,14 @@ INLINE bool mem_readw_checked_x86(PhysPt address, Bit16u * val) {
 INLINE bool mem_readd_checked_x86(PhysPt address, Bit32u * val) {
 	if ((address & 0xfff)<0xffd) {
 		Bitu index=(address>>12);
-		if (paging.tlb.read[index]) {
-			*val=host_readd(paging.tlb.read[index]+address);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->read) {
+			*val=host_readd(entry->read+address);
 			return false;
 		} else {
 			Bitu uval;
 			bool retval;
-			retval=paging.tlb.handler[index]->readd_checked(address, &uval);
+			retval=entry->handler->readd_checked(address, &uval);
 			*val=(Bit32u)uval;
 			return retval;
 		}
@@ -312,29 +351,32 @@ INLINE bool mem_readd_checked_x86(PhysPt address, Bit32u * val) {
 
 INLINE bool mem_writeb_checked_x86(PhysPt address,Bit8u val) {
 	Bitu index=(address>>12);
-	if (paging.tlb.write[index]) {
-		host_writeb(paging.tlb.write[index]+address,val);
+	tlb_entry *entry = get_tlb_entry(address);
+	if (entry->write) {
+		host_writeb(entry->write+address,val);
 		return false;
-	} else return paging.tlb.handler[index]->writeb_checked(address,val);
+	} else return entry->handler->writeb_checked(address,val);
 }
 
 INLINE bool mem_writew_checked_x86(PhysPt address,Bit16u val) {
 	if ((address & 0xfff)<0xfff) {
+		tlb_entry *entry = get_tlb_entry(address);
 		Bitu index=(address>>12);
-		if (paging.tlb.write[index]) {
-			host_writew(paging.tlb.write[index]+address,val);
+		if (entry->write) {
+			host_writew(entry->write+address,val);
 			return false;
-		} else return paging.tlb.handler[index]->writew_checked(address,val);
+		} else return entry->handler->writew_checked(address,val);
 	} else return mem_unalignedwritew_checked_x86(address,val);
 }
 
 INLINE bool mem_writed_checked_x86(PhysPt address,Bit32u val) {
 	if ((address & 0xfff)<0xffd) {
 		Bitu index=(address>>12);
-		if (paging.tlb.write[index]) {
-			host_writed(paging.tlb.write[index]+address,val);
+		tlb_entry *entry = get_tlb_entry(address);
+		if (entry->write) {
+			host_writed(entry->write+address,val);
 			return false;
-		} else return paging.tlb.handler[index]->writed_checked(address,val);
+		} else return entry->handler->writed_checked(address,val);
 	} else return mem_unalignedwrited_checked_x86(address,val);
 }
 

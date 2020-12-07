@@ -36,6 +36,7 @@
 #include "../libs/zmbv/zmbv.cpp"
 #endif
 
+#ifdef CAPTURE
 static char * capturedir;
 extern const char* RunningProgram;
 Bitu CaptureState;
@@ -742,3 +743,6 @@ void HARDWARE_Init(Section * sec) {
 	test = new HARDWARE(sec);
 	sec->AddDestroyFunction(&HARDWARE_Destroy,true);
 }
+#else
+void HARDWARE_Init(Section * sec) { }
+#endif

@@ -269,7 +269,7 @@ static void SN76496_set_clock(int clock)
 	/* at the given sample rate. No. of events = sample rate / (clock/16). */
 	/* STEP is a multiplier used to turn the fraction into a fixed point */
 	/* number. */
-	R->UpdateStep = (unsigned int)(((double)STEP * R->SampleRate * 16) / clock);
+	R->UpdateStep = (unsigned int)(((float)STEP * R->SampleRate * 16) / clock);
 }
 
 
@@ -284,7 +284,7 @@ static void SN76496_set_gain(int gain)
 {
 	struct SN76496 *R = &sn;
 	int i;
-	double out;
+	float out;
 
 
 	gain &= 0xff;

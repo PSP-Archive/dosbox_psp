@@ -120,7 +120,11 @@ private:
 /* The following variable can be lowered to free up some memory. 
  * The negative side effect: The stored searches will be turned over faster.
  * Should not have impact on systems with few directory entries. */
+#ifdef PSP
+#define MAX_OPENDIRS 128
+#else
 #define MAX_OPENDIRS 2048
+#endif
 //Can be high as it's only storage (16 bit variable)
 
 class DOS_Drive_Cache {

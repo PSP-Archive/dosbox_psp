@@ -23,6 +23,10 @@
 #include "dosbox.h"
 #endif
 
+#ifdef PSP
+#include <pspkerneltypes.h>
+#endif
+
 typedef void (*MIXER_MixHandler)(Bit8u * sampdate,Bit32u len);
 typedef void (*MIXER_Handler)(Bitu len);
 
@@ -38,7 +42,16 @@ enum MixerModes {
 
 #define MIXER_BUFSIZE (16*1024)
 #define MIXER_BUFMASK (MIXER_BUFSIZE-1)
-extern Bit8u MixTemp[MIXER_BUFSIZE];
+
+#ifdef PSP
+#ifdef PSPME
+#define MixTemp ((Bit8u *)0)		// This is not a NULL pointer!
+#else
+#define MixTemp ((Bit8u *)0x10000)
+#endif
+#else
+extern Bit8u *MixTemp;
+#endif
 
 #define MAX_AUDIO ((1<<(16-1))-1)
 #define MIN_AUDIO -(1<<(16-1))

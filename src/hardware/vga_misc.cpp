@@ -32,7 +32,7 @@ static Bitu vga_read_p3da(Bitu port,Bitu iolen) {
 	vga.internal.attrindex=false;
 	vga.tandy.pcjr_flipflop=false;
 	Bit8u retval=0;
-	double timeInFrame = PIC_FullIndex()-vga.draw.delay.framestart;
+	float timeInFrame = PIC_FullIndex()-vga.draw.delay.framestart;
 
  	vga.internal.attrindex=false;
  	vga.tandy.pcjr_flipflop=false;
@@ -47,7 +47,7 @@ static Bitu vga_read_p3da(Bitu port,Bitu iolen) {
 		if(timeInFrame >= vga.draw.delay.vrstart &&
 			timeInFrame <= vga.draw.delay.vrend)
 			retval |= 0x80;
-		double timeInLine=fmod(timeInFrame,vga.draw.delay.htotal);
+		float timeInLine=fmodf(timeInFrame,vga.draw.delay.htotal);
 		if(timeInLine >= vga.draw.delay.hrstart &&
 			timeInLine <= vga.draw.delay.hrend)
 			retval |= 1;
@@ -65,7 +65,7 @@ static Bitu vga_read_p3da(Bitu port,Bitu iolen) {
 		if(timeInFrame >= vga.draw.delay.vdend)
 			retval |= 1;
 		else {
-			double timeInLine=fmod(timeInFrame,vga.draw.delay.htotal);
+			float timeInLine=fmodf(timeInFrame,vga.draw.delay.htotal);
 			if(timeInLine >= (vga.draw.delay.hblkstart) && 
 					timeInLine <= vga.draw.delay.hblkend){
 				retval |= 1;

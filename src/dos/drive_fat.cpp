@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
 #include "dosbox.h"
 #include "dos_inc.h"
 #include "drives.h"
@@ -613,7 +614,7 @@ bool fatDrive::allocateCluster(Bit32u useCluster, Bit32u prevCluster) {
 
 fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector, Bit32u headscyl, Bit32u cylinders, Bit32u startSector) {
 	created_succesfully = true;
-	FILE *diskfile;
+	int diskfile;
 	Bit32u filesize;
 	struct partTable mbrData;
 	
@@ -623,10 +624,9 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		imgDTA    = new DOS_DTA(imgDTAPtr);
 	}
 
-	diskfile = fopen(sysFilename, "rb+");
+	diskfile = open(sysFilename, O_RDONLY);
 	if(!diskfile) {created_succesfully = false;return;}
-	fseek(diskfile, 0L, SEEK_END);
-	filesize = (Bit32u)ftell(diskfile) / 1024L;
+	filesize = lseek(diskfile, 0L, SEEK_END) / 1024L;
 
 	/* Load disk image */
 	loadedDisk = new imageDisk(diskfile, (Bit8u *)sysFilename, filesize, (filesize > 2880));
@@ -639,7 +639,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		/* Set user specified harddrive parameters */
 		loadedDisk->Set_Geometry(headscyl, cylinders,cylsector, bytesector);
 
-		loadedDisk->Read_Sector(0,0,1,&mbrData);
+		loadedDisk->Read_AbsoluteSector(0,&mbrData);
 
 		if(mbrData.magic1!= 0x55 ||	mbrData.magic2!= 0xaa) LOG_MSG("Possibly invalid partition table in disk image.");
 

@@ -31,6 +31,8 @@
 #define SYSEX_SIZE 1024
 #define RAWBUF	1024
 
+#ifdef USE_MIDI
+
 Bit8u MIDI_evt_len[256] = {
   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x00
   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x10
@@ -73,8 +75,6 @@ public:
 	MidiHandler * next;
 };
 
-MidiHandler Midi_none;
-
 /* Include different midi drivers, lowest ones get checked first for default */
 
 #if defined(MACOSX)
@@ -96,6 +96,8 @@ MidiHandler Midi_none;
 #include "midi_alsa.h"
 
 #endif
+
+MidiHandler Midi_none;
 
 static struct {
 	Bitu status;
@@ -207,3 +209,14 @@ void MIDI_Init(Section * sec) {
 	test = new MIDI(sec);
 	sec->AddDestroyFunction(&MIDI_Destroy,true);
 }
+
+#else
+
+void MIDI_Init(Section * src) { }
+
+void MIDI_RawOutByte(Bit8u data) { }
+
+bool MIDI_Available(void) { return false; }
+
+#endif
+

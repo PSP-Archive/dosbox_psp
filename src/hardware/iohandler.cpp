@@ -238,6 +238,10 @@ void IO_WriteB(Bitu port,Bitu val) {
 		cpudecoder=old_cpudecoder;
 	}
 	else {
+		if(port > IO_MAX) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid write to port %04X",port);
+			return;
+		}
 		IO_USEC_write_delay();
 		io_writehandlers[0][port](port,val,1);
 	}
@@ -273,6 +277,10 @@ void IO_WriteW(Bitu port,Bitu val) {
 		cpudecoder=old_cpudecoder;
 	}
 	else {
+		if(port > (IO_MAX-1)) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid write to port %04X",port);
+			return;
+		}
 		IO_USEC_write_delay();
 		io_writehandlers[1][port](port,val,2);
 	}
@@ -307,7 +315,13 @@ void IO_WriteD(Bitu port,Bitu val) {
 		memcpy(&lflags,&old_lflags,sizeof(LazyFlags));
 		cpudecoder=old_cpudecoder;
 	}
-	else io_writehandlers[2][port](port,val,4);
+	else {
+		if(port > (IO_MAX-3)) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid write to port %04X",port);
+			return;
+		}
+		io_writehandlers[2][port](port,val,4);
+	}
 };
 
 Bitu IO_ReadB(Bitu port) {
@@ -340,6 +354,10 @@ Bitu IO_ReadB(Bitu port) {
 		return retval;
 	}
 	else {
+		if(port > IO_MAX) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid read from port %04X",port);
+			return -1;
+		}
 		IO_USEC_read_delay();
 		return io_readhandlers[0][port](port,1);
 	}
@@ -375,6 +393,10 @@ Bitu IO_ReadW(Bitu port) {
 		return retval;
 	}
 	else {
+		if(port > (IO_MAX-1)) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid read from port %04X",port);
+			return -1;
+		}
 		IO_USEC_read_delay();
 		return io_readhandlers[1][port](port,2);
 	}
@@ -409,7 +431,13 @@ Bitu IO_ReadD(Bitu port) {
 		cpudecoder=old_cpudecoder;
 		return retval;
 	}
-	else return io_readhandlers[2][port](port,4);
+	else {
+		if(port > (IO_MAX-3)) {
+			LOG(LOG_IO,LOG_ERROR)("Invalid read from port %04X",port);
+			return -1;
+		}
+		return io_readhandlers[2][port](port,4);
+	}
 };
 
 class IO :public Module_base {

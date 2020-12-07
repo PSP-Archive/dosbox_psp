@@ -18,6 +18,8 @@
 
 /* $Id: sdl_mapper.cpp,v 1.39 2007-07-17 13:50:27 c2woody Exp $ */
 
+#ifdef USE_SDL
+
 #include <vector>
 #include <list>
 #include <string.h>
@@ -2352,4 +2354,5 @@ void MAPPER_StartUp(Section * sec) {
 	mapper.filename=section->Get_string("mapperfile");
 	MAPPER_AddHandler(&MAPPER_Run,MK_f1,MMOD1,"mapper","Mapper");
 }
+#endif
 

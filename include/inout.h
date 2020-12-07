@@ -21,7 +21,11 @@
 #ifndef DOSBOX_INOUT_H
 #define DOSBOX_INOUT_H
 
+#ifdef PSP
+#define IO_MAX (0x400)
+#else
 #define IO_MAX (64*1024+3)
+#endif
 
 #define IO_MB	0x1
 #define IO_MW	0x2

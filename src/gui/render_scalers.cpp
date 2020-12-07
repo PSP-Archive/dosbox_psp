@@ -21,6 +21,8 @@
 //Maybe just do the cache checking back into the simple scalers so they can 
 //just handle it all in one go, but this seems to work well enough for now
 
+#ifndef PSP
+
 #include "dosbox.h"
 #include "render.h"
 #include <string.h>
@@ -437,4 +439,5 @@ ScalerComplexBlock_t ScaleAdvInterp3x = {
 {	0,AdvInterp3x_15_R,AdvInterp3x_16_R,AdvInterp3x_32_R}
 };
 
+#endif
 #endif

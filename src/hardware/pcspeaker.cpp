@@ -259,7 +259,7 @@ static void PCSPEAKER_CallBack(Bitu len) {
 		float index=sample_base;
 		sample_base+=sample_add;
 		float end=sample_base;
-		double value=0;
+		float value=0;
 		while(index<end) {
 			/* Check if there is an upcoming event */
 			if (spkr.used && spkr.entries[pos].index<=index) {
@@ -279,7 +279,7 @@ static void PCSPEAKER_CallBack(Bitu len) {
 				index+=vol_len;
 			} else {
 				/* Check how long it will take to goto new level */
-				float vol_time=fabs(vol_diff)/SPKR_SPEED;
+				float vol_time=fabsf(vol_diff)/SPKR_SPEED;
 				if (vol_time<=vol_len) {
 					/* Volume reaches endpoint in this block, calc until that point */
 					value+=vol_time*spkr.volcur;

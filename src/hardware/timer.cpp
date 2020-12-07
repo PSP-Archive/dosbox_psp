@@ -27,6 +27,16 @@
 #include "timer.h"
 #include "setup.h"
 
+#ifdef PSP
+#include <sys/time.h>
+struct timeval start;
+Bitu GetTicks() {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return (now.tv_sec-start.tv_sec)*1000+(now.tv_usec-start.tv_usec)/1000;
+}
+#endif
+
 static INLINE void BIN2BCD(Bit16u& val) {
 	Bit16u temp=val%10 + (((val/10)%10)<<4)+ (((val/100)%10)<<8) + (((val/1000)%10)<<12);
 	val=temp;
@@ -40,7 +50,7 @@ static INLINE void BCD2BIN(Bit16u& val) {
 struct PIT_Block {
 	Bitu cntr;
 	float delay;
-	double start;
+	float start;
 
 	Bit16u read_latch;
 	Bit16u write_latch;
@@ -68,14 +78,14 @@ static void PIT0_Event(Bitu /*val*/) {
 	PIC_ActivateIRQ(0);
 	if (pit[0].mode != 0) {
 		pit[0].start += pit[0].delay;
-		double error = 	pit[0].start - PIC_FullIndex();
+		float error = 	pit[0].start - PIC_FullIndex();
 		PIC_AddEvent(PIT0_Event,(float)(pit[0].delay + error));
 	}
 }
 
 static bool counter_output(Bitu counter) {
 	PIT_Block * p=&pit[counter];
-	double index=PIC_FullIndex()-p->start;
+	float index=PIC_FullIndex()-p->start;
 	switch (p->mode) {
 	case 0:
 		if (p->new_mode) return false;
@@ -84,11 +94,11 @@ static bool counter_output(Bitu counter) {
 		break;
 	case 2:
 		if (p->new_mode) return true;
-		index=fmod(index,(double)p->delay);
+		index=fmodf(index,(float)p->delay);
 		return index>0;
 	case 3:
 		if (p->new_mode) return true;
-		index=fmod(index,(double)p->delay);
+		index=fmodf(index,(float)p->delay);
 		return index*2<p->delay;
 	default:
 		LOG(LOG_PIT,LOG_ERROR)("Illegal Mode %d for reading output",p->mode);
@@ -129,7 +139,7 @@ static void counter_latch(Bitu counter) {
 	//If gate2 is disabled don't update the read_latch
 	if(counter == 2 && !gate2) return;
 
-	double index=PIC_FullIndex()-p->start;
+	float index=PIC_FullIndex()-p->start;
 	switch (p->mode) {
 	case 4:		/* Software Triggered Strobe */
 	case 0:		/* Interrupt on Terminal Count */
@@ -137,10 +147,10 @@ static void counter_latch(Bitu counter) {
 		if (index>p->delay) {
 			index-=p->delay;
 			if(p->bcd) {
-				index = fmod(index,(1000.0/PIT_TICK_RATE)*10000.0);
+				index = fmodf(index,(1000.0/PIT_TICK_RATE)*10000.0);
 				p->read_latch = (Bit16u)(9999-index*(PIT_TICK_RATE/1000.0));
 			} else {
-				index = fmod(index,(1000.0/PIT_TICK_RATE)*(double)0x10000);
+				index = fmodf(index,(1000.0/PIT_TICK_RATE)*(float)0x10000);
 				p->read_latch = (Bit16u)(0xffff-index*(PIT_TICK_RATE/1000.0));
 			}
 		} else {
@@ -148,11 +158,11 @@ static void counter_latch(Bitu counter) {
 		}
 		break;
 	case 2:		/* Rate Generator */
-		index=fmod(index,(double)p->delay);
+		index=fmodf(index,(float)p->delay);
 		p->read_latch=(Bit16u)(p->cntr - (index/p->delay)*p->cntr);
 		break;
 	case 3:		/* Square Wave Rate Generator */
-		index=fmod(index,(double)p->delay);
+		index=fmodf(index,(float)p->delay);
 		index*=2;
 		if (index>p->delay) index-=p->delay;
 		p->read_latch=(Bit16u)(p->cntr - (index/p->delay)*p->cntr);
@@ -208,7 +218,7 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 			LOG(LOG_PIT,LOG_NORMAL)("PIT 0 Timer at %.2f Hz mode %d",1000.0/p->delay,p->mode);
 			break;
 		case 0x02:			/* Timer hooked to PC-Speaker */
-//			LOG(LOG_PIT,"PIT 2 Timer at %.3g Hz mode %d",PIT_TICK_RATE/(double)p->cntr,p->mode);
+//			LOG(LOG_PIT,"PIT 2 Timer at %.3g Hz mode %d",PIT_TICK_RATE/(float)p->cntr,p->mode);
 			PCSPEAKER_SetCounter(p->cntr,p->mode);
 			break;
 		default:

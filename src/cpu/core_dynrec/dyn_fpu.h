@@ -47,6 +47,8 @@ static void FPU_FFREE(Bitu st) {
 
 #if C_FPU_X86
 #include "../../fpu/fpu_instructions_x86.h"
+#elif defined(PSP)
+#include "../../fpu/fpu_instructions_vfpu.h"
 #else
 #include "../../fpu/fpu_instructions.h"
 #endif
@@ -618,7 +620,7 @@ static void dyn_fpu_esc7(){
 					gen_mov_word_to_reg(FC_OP1,(void*)(&TOP),true);
 					gen_call_function_R((void*)&FPU_SET_TOP,FC_OP1); 
 					gen_mov_word_to_reg(FC_OP1,(void*)(&fpu.sw),false);
-					gen_mov_word_from_reg(FC_OP1,DRCD_REG_WORD(DRC_REG_EAX,false),false);
+					gen_set_creg_word(FC_OP1,DRC_REG_EAX,false);
 					break;
 				default:
 					LOG(LOG_FPU,LOG_WARN)("ESC 7:Unhandled group %d subfunction %d",decode.modrm.reg,decode.modrm.rm);

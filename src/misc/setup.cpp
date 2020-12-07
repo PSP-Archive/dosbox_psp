@@ -30,11 +30,11 @@
 
 using namespace std;
 
-void Prop_float::SetValue(char* input){
+/*void Prop_float::SetValue(char* input){
 	input=trim(input);
-	value._float= static_cast<float>(atof(input));
+	value._float= strtof(input,NULL);
 }
-
+*/
 void Prop_int::SetValue(char* input){
 	input=trim(input);
 	value._int= atoi(input);
@@ -70,20 +70,20 @@ void Prop_string::GetValuestring(char* str) const{
 void Prop_bool::GetValuestring(char* str) const{
         sprintf(str,"%s",value._bool?"true":"false");
 }
-
+/*
 void Prop_float::GetValuestring(char* str) const {
 	sprintf(str,"%1.2f",value._float);
 }
-
+*/
 void Prop_hex::GetValuestring(char* str) const {
         sprintf(str,"%X",value._hex);
 }
-
+/*
 void Section_prop::Add_float(char const * const _propname, float _value) {
 	Property* test=new Prop_float(_propname,_value);
 	properties.push_back(test);
 }
-
+*/
 
 void Section_prop::Add_int(const char* _propname, int _value) {
 	Property* test=new Prop_int(_propname,_value);
@@ -120,6 +120,7 @@ bool Section_prop::Get_bool(char const * const _propname) const {
 	}
 	return false;
 }
+/*
 float Section_prop::Get_float(char const * const _propname) const {
 	for(const_it tel=properties.begin();tel!=properties.end();tel++){
 		if((*tel)->propname==_propname){
@@ -128,7 +129,7 @@ float Section_prop::Get_float(char const * const _propname) const {
 	}
 	return false;
 }
-
+*/
 const char* Section_prop::Get_string(char const * const _propname) const {
 	for(const_it tel=properties.begin();tel!=properties.end();tel++){
 		if((*tel)->propname==_propname){

@@ -316,12 +316,22 @@ Bitu PAGING_GetDirBase(void) {
 	return paging.cr3;
 }
 
-void PAGING_InitTLB(void) {
+static INLINE void InitTLBInt(tlb_entry *bank) {
 	for (Bitu i=0;i<TLB_SIZE;i++) {
-		paging.tlb.read[i]=0;
-		paging.tlb.write[i]=0;
-		paging.tlb.handler[i]=&init_page_handler;
+		bank[i].read=0;
+		bank[i].write=0;
+		bank[i].handler=&init_page_handler;
 	}
+}
+
+void PAGING_InitTLBBank(tlb_entry **bank) {
+	*bank = (tlb_entry *)malloc(sizeof(tlb_entry)*TLB_SIZE);
+	if(!*bank) E_Exit("Out of Memory");
+	InitTLBInt(*bank);
+}
+
+void PAGING_InitTLB(void) {
+	InitTLBInt(paging.tlb);
 	paging.links.used=0;
 }
 
@@ -329,25 +339,28 @@ void PAGING_ClearTLB(void) {
 	Bit32u * entries=&paging.links.entries[0];
 	for (;paging.links.used>0;paging.links.used--) {
 		Bitu page=*entries++;
-		paging.tlb.read[page]=0;
-		paging.tlb.write[page]=0;
-		paging.tlb.handler[page]=&init_page_handler;
+		tlb_entry *entry = get_tlb_entry(page<<12);
+		entry->read=0;
+		entry->write=0;
+		entry->handler=&init_page_handler;
 	}
 	paging.links.used=0;
 }
 
 void PAGING_UnlinkPages(Bitu lin_page,Bitu pages) {
+	tlb_entry *entry = get_tlb_entry(lin_page<<12);
 	for (;pages>0;pages--) {
-		paging.tlb.read[lin_page]=0;
-		paging.tlb.write[lin_page]=0;
-		paging.tlb.handler[lin_page]=&init_page_handler;
+		entry->read=0;
+		entry->write=0;
+		entry->handler=&init_page_handler;
 	}
 }
 
 void PAGING_LinkPage(Bitu lin_page,Bitu phys_page) {
 	PageHandler * handler=MEM_GetPageHandler(phys_page);
 	Bitu lin_base=lin_page << 12;
-	if (lin_page>=TLB_SIZE || phys_page>=TLB_SIZE) 
+	tlb_entry *entry = get_tlb_entry(lin_base);
+	if (lin_page>=(TLB_SIZE*(TLB_BANKS+1)) || phys_page>=(TLB_SIZE*(TLB_BANKS+1))) 
 		E_Exit("Illegal page");
 
 	if (paging.links.used>=PAGING_LINKS) {
@@ -355,22 +368,22 @@ void PAGING_LinkPage(Bitu lin_page,Bitu phys_page) {
 		PAGING_ClearTLB();
 	}
 
-	paging.tlb.phys_page[lin_page]=phys_page;
-	if (handler->flags & PFLAG_READABLE) paging.tlb.read[lin_page]=handler->GetHostReadPt(phys_page)-lin_base;
-	else paging.tlb.read[lin_page]=0;
-	if (handler->flags & PFLAG_WRITEABLE) paging.tlb.write[lin_page]=handler->GetHostWritePt(phys_page)-lin_base;
-	else paging.tlb.write[lin_page]=0;
+	entry->phys_page=phys_page;
+	if (handler->flags & PFLAG_READABLE) entry->read=handler->GetHostReadPt(phys_page)-lin_base;
+	else entry->read=0;
+	if (handler->flags & PFLAG_WRITEABLE) entry->write=handler->GetHostWritePt(phys_page)-lin_base;
+	else entry->write=0;
 
 	paging.links.entries[paging.links.used++]=lin_page;
-	paging.tlb.handler[lin_page]=handler;
+	entry->handler=handler;
 }
 
 void PAGING_MapPage(Bitu lin_page,Bitu phys_page) {
 	if (lin_page<LINK_START) {
 		paging.firstmb[lin_page]=phys_page;
-		paging.tlb.read[lin_page]=0;
-		paging.tlb.write[lin_page]=0;
-		paging.tlb.handler[lin_page]=&init_page_handler;
+		paging.tlb[lin_page].read=0;
+		paging.tlb[lin_page].write=0;
+		paging.tlb[lin_page].handler=&init_page_handler;
 	} else {
 		PAGING_LinkPage(lin_page,phys_page);
 	}
@@ -394,12 +407,14 @@ void PAGING_Enable(bool enabled) {
 	if (!enabled) {
 //		LOG(LOG_PAGING,LOG_NORMAL)("Disabled");
 	} else {
+#ifdef SIMPLE
 		if (cpudecoder==CPU_Core_Simple_Run) {
 //			LOG_MSG("CPU core simple won't run this game,switching to normal");
 			cpudecoder=CPU_Core_Normal_Run;
 			CPU_CycleLeft+=CPU_Cycles;
 			CPU_Cycles=0;
 		}
+#endif
 //		LOG(LOG_PAGING,LOG_NORMAL)("Enabled");
 		PAGING_SetDirBase(paging.cr3);
 	}

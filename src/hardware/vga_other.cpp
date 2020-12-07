@@ -145,7 +145,7 @@ static Bitu read_crtc_data_other(Bitu port,Bitu iolen) {
 	return ~0;
 }
 
-static double hue_offset = 0.0;
+static float hue_offset = 0.0;
 static Bit8u cga16_val = 0;
 static void update_cga16_color(void);
 
@@ -166,8 +166,8 @@ static void update_cga16_color(void) {
 // to match an entry that is generated here.
 
 	int baseR=0, baseG=0, baseB=0;
-	double sinhue,coshue,hue,basehue = 50.0;
-	double I,Q,Y,pixelI,pixelQ,R,G,B;
+	float sinhue,coshue,hue,basehue = 50.0;
+	float I,Q,Y,pixelI,pixelQ,R,G,B;
 	Bitu colorBit1,colorBit2,colorBit3,colorBit4,index;
 
 	if (cga16_val & 0x01) baseB += 0xa8;
@@ -177,8 +177,8 @@ static void update_cga16_color(void) {
 	if (cga16_val & 0x20) basehue = 35.0;
 
 	hue = (basehue + hue_offset)*0.017453239;
-	sinhue = sin(hue);
-	coshue = cos(hue);
+	sinhue = sinf(hue);
+	coshue = cosf(hue);
 
 	for(Bitu i = 0; i < 16;i++) {
 		for(Bitu j = 0;j < 5;j++) {
@@ -190,11 +190,11 @@ static void update_cga16_color(void) {
 
 			//calculate lookup table
 			I = 0; Q = 0;
-			I += (double) colorBit1;
-			Q += (double) colorBit2;
-			I -= (double) colorBit3;
-			Q -= (double) colorBit4;
-			Y  = (double) j / 4.0; //calculated avarage is over 4 bits
+			I += (float) colorBit1;
+			Q += (float) colorBit2;
+			I -= (float) colorBit3;
+			Q -= (float) colorBit4;
+			Y  = (float) j / 4.0; //calculated avarage is over 4 bits
 
 			pixelI = I * 1.0 / 3.0; //I* tvSaturnation / 3.0
 			pixelQ = Q * 1.0 / 3.0; //Q* tvSaturnation / 3.0

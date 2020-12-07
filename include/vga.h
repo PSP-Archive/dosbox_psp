@@ -26,7 +26,11 @@
 //Don't enable keeping changes and mapping lfb probably...
 #define VGA_LFB_MAPPED
 //#define VGA_KEEP_CHANGES
+#ifdef PSP
+#define VGA_MEMORY (1*1024*1024)
+#else
 #define VGA_MEMORY (2*1024*1024)
+#endif
 #define VGA_CHANGE_SHIFT	9
 
 //Offset inside VGA_MEMORY that will be used for certain types of caching
@@ -121,14 +125,14 @@ typedef struct {
 	Bitu parts_lines;
 	Bitu parts_left;
 	struct {
-		double framestart;
-		double vrstart, vrend;		// V-retrace
-		double hrstart, hrend;		// H-retrace
-		double hblkstart, hblkend;	// H-blanking
-		double vblkstart, vblkend;	// V-Blanking
-		double vdend, vtotal;
-		double hdend, htotal;
-		double parts;
+		float framestart;
+		float vrstart, vrend;		// V-retrace
+		float hrstart, hrend;		// H-retrace
+		float hblkstart, hblkend;	// H-blanking
+		float vblkstart, vblkend;	// V-Blanking
+		float vdend, vtotal;
+		float hdend, htotal;
+		float parts;
 	} delay;
 	bool double_scan;
 	bool doublewidth,doubleheight;
@@ -330,7 +334,7 @@ typedef union {
 
 typedef struct {
 	Bit8u	linear[VGA_MEMORY];
-} VGA_Memory;
+} VGA_Memory __attribute__((aligned(4)));
 
 typedef struct {
 	//Add a few more just to be safe
@@ -352,6 +356,7 @@ typedef struct {
 typedef struct {
 	VGAModes mode;								/* The mode the vga system is in */
 	VGAModes lastmode;
+	Bit8u force_update;
 	Bit8u misc_output;
 	VGA_Draw draw;
 	VGA_Config config;

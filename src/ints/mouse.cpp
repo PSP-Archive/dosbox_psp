@@ -414,8 +414,8 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
 	float dx = xrel * mouse.pixelPerMickey_x;
 	float dy = yrel * mouse.pixelPerMickey_y;
 
-	if((fabs(x) > 1.0) || (mouse.senv_x < 1.0)) dx *= mouse.senv_x;
-	if((fabs(y) > 1.0) || (mouse.senv_y < 1.0)) dy *= mouse.senv_y;
+	if((fabsf(x) > 1.0) || (mouse.senv_x < 1.0)) dx *= mouse.senv_x;
+	if((fabsf(y) > 1.0) || (mouse.senv_y < 1.0)) dy *= mouse.senv_y;
 	if (useps2callback) dy *= 2;	
 
 	mouse.mickey_x += dx;
@@ -796,9 +796,9 @@ static Bitu INT33_Handler(void) {
 		// ToDo : double mouse speed value
 		break;
 	case 0x1b:	/* Get mouse sensitivity */
-		reg_bx = Bit16s((60.0* sqrt(mouse.senv_x- (1.0/3.0)) ) +1.0);
+		reg_bx = Bit16s((60.0* sqrtf(mouse.senv_x- (1.0/3.0)) ) +1.0);
 
-		reg_cx = Bit16s((60.0* sqrt(mouse.senv_y- (1.0/3.0)) ) +1.0);
+		reg_cx = Bit16s((60.0* sqrtf(mouse.senv_y- (1.0/3.0)) ) +1.0);
 
 		LOG(LOG_MOUSE,LOG_WARN)("Get sensitivity %d %d",reg_bx,reg_cx);
 
