@@ -1,6 +1,6 @@
-# DOSBox PSP
+This is a port of the MS-DOS emulator DOSBox for the PlayStation Portable.
 
-Make sure to check out the project's [wiki](https://github.com/pierrelouys/dosbox_psp/wiki)!
+# Make sure to check out the [project's wiki](https://github.com/pierrelouys/dosbox_psp/wiki)!
 
 ## Instructions for building
 
