@@ -1,5 +1,7 @@
 # DOSBox PSP
 
+Make sure to check out the project's [wiki](https://github.com/pierrelouys/dosbox_psp/wiki)!
+
 ## Instructions for building
 
 - Install the [psp toolchain](https://github.com/pspdev/psptoolchain)
