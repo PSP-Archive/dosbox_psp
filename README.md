@@ -9,7 +9,7 @@ This is a port of DOSBox for the PlayStation Portable.
 - Configure with this command
 
 ```sh
-CXXFLAGS="-I${PSPDEV}/psp/sdk/include -I${PSPDEV}/psp/include/SDL -O2 -G0" LDFLAGS="-L${PSPDEV}/psp/sdk/lib -L  ${PSPDEV}/psp/lib -lc -lpspuser -lpspkernel" ./configure -host=psp
+CXXFLAGS="-I${PSPDEV}/psp/sdk/include -I${PSPDEV}/psp/include/SDL -O2 -G0" LDFLAGS="-L${PSPDEV}/psp/sdk/lib -L  ${PSPDEV}/psp/lib -lc -lpspuser -lpspkernel" CFLAGS="-I${PSPDEV}/psp/sdk/include" ./configure -host=psp
 ```
 - Comment out this line in config.h
 ```
