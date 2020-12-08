@@ -1,4 +1,4 @@
-This is a port of the MS-DOS emulator DOSBox for the PlayStation Portable.
+This is a port of DOSBox for the PlayStation Portable.
 
 # Make sure to check out the [project's wiki](https://github.com/pierrelouys/dosbox_psp/wiki)!
 
