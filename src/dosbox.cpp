@@ -401,7 +401,7 @@ void DOSBOX_Init(void) {
 		"oplmode -- Type of OPL emulation: auto,cms,opl2,dualopl2,opl3.\n"
 		"           On auto the mode is determined by sblaster type.\n"
 		"           All OPL modes are 'Adlib', except for CMS.\n"
-		"oplrate -- Sample rate of OPL music emulation.\n"
+		"oplrate -- Sample rate of OPL music emulation.\n");
 	secprop=control->AddSection_prop("gus",&GUS_Init,true); //done
 	secprop->Add_bool("gus",true); 	
 	secprop->Add_int("gusrate",22050);
