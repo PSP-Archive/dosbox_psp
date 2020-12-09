@@ -211,4 +211,4 @@ _pspDebugExceptionHandler:
    #include "pspimport.s"
 
    IMPORT_START   "ExceptionManagerForKernel",0x00010011
-   IMPORT_FUNC   "ExceptionManagerForKernel",0x565C0B0E,sceKernelRegisterDefaultExceptionHandler371 
+   IMPORT_FUNC   "ExceptionManagerForKernel",0x565C0B0E,sceKernelRegisterDefaultExceptionHandler371
