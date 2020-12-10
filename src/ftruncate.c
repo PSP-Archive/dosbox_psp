@@ -1,4 +1,10 @@
-#include <stuff>
+#include <errno.h>
+#include <sys/resource.h>
+#include <pspkerneltypes.h>
+#include <fdman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "ftruncate.h"
 
 int ftruncate(int fd, off_t length)

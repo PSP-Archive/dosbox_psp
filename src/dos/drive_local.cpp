@@ -30,6 +30,7 @@
 #include "support.h"
 #include "cross.h"
 #include "inout.h"
+#include "ftruncate.h"
 
 class localFile : public DOS_File {
 public:
@@ -456,11 +457,7 @@ bool localFile::Write(Bit8u * data,Bit16u * size) {
 	if (last_action==READ) fseek(fhandle,ftell(fhandle),SEEK_SET);
 	last_action=WRITE;
 	if(*size==0){  
-        #ifdef PSP
-            return true;
-        #else
-            return (!ftruncate(fileno(fhandle),ftell(fhandle)));
-        #endif
+        return (!ftruncate(fileno(fhandle),ftell(fhandle)));
     }
     else 
     {
