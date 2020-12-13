@@ -259,13 +259,12 @@ unsigned int *p_spGetHintList(int bpp) {
 	static int hints[2][HINT_SIZE] __attribute__((aligned (16)));
 	static unsigned int list[38] __attribute__((aligned (16)));
 	if(hint_btn == UNSET) return NULL;
-/* 	COMMENTING OUT until a solution is found
 	if((hint_btn != last_hint) || (last_group != active_group) || (bpp != last_bpp)) {
 		int psm = (bpp == 16 ? GU_PSM_5650 : GU_PSM_8888);
 		last_bpp = bpp;
 		last_hint = hint_btn;
 		last_group = active_group;
-		memset(hints, '\0', HINT_SIZE*2*4);
+		//memset(hints, '\0', HINT_SIZE*2*4);
 		DrawHint(&p_sprint_keys[active_group][hint_btn-1][0], (unsigned char *)hints[0], bpp);
 		DrawHint(&p_sprint_keys[active_group][hint_btn-1][3], (unsigned char *)hints[1], bpp);
 		sceGuStart(GU_SEND, list);
@@ -274,7 +273,7 @@ unsigned int *p_spGetHintList(int bpp) {
 		sceGuCopyImage(psm, 0, 0, HINT_WIDTH, HINT_HEIGHT, HINT_WIDTH, hints[1], 
 				480-HINT_WIDTH, 272-HINT_HEIGHT, 512, (void *)0x04000000);
 		sceGuFinish();
-	} */
+	}
 	return list;
 }
 
