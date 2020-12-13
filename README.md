@@ -4,6 +4,11 @@ This is a port of DOSBox for the PlayStation Portable.
 
 ## Instructions for building
 
+- Enter the following in Terminal:
+```
+./autogen.sh
+```
+
 - Install the [psp toolchain](https://github.com/pspdev/psptoolchain)
 
 - Configure with this command
