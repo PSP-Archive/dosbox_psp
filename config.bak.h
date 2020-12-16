@@ -90,7 +90,7 @@
 ///////////////////
 
 /* Version number of package */
-#define VERSION "0.72-psp"
+#define VERSION "0.72"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
