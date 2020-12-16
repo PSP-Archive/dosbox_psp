@@ -1,6 +1,5 @@
 autom4te.cache/*
 aclocal.m4
-config.h
 config.log
 config.status
 .deps
@@ -13,4 +12,5 @@ dosbox
 *.prx
 *.PBP
 *.SFO
-
+Makefile.*
+Makefile

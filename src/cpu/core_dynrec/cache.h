@@ -79,12 +79,6 @@ static Bit8u * cache_code_link_blocks=NULL;
 static CacheBlockDynRec * cache_blocks=NULL;
 static CacheBlockDynRec link_blocks[2];		// default linking (specially marked)
 
-// cache memory pointers, to be malloc'd later
-static Bit8u * cache_code_start_ptr=NULL;
-static Bit8u * cache_code=NULL;
-static Bit8u * cache_code_link_blocks=NULL;
-static CacheBlockDynRec * cache_blocks=NULL;
-
 // the CodePageHandlerDynRec class provides access to the contained
 // cache blocks and intercepts writes to the code for special treatment
 class CodePageHandlerDynRec : public PageHandler {
