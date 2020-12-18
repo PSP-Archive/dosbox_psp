@@ -30,7 +30,10 @@
 #include "support.h"
 #include "cross.h"
 #include "inout.h"
-#include "ftruncate.h"
+
+#ifdef PSP
+#include <ftruncate.h>
+#endif
 
 class localFile : public DOS_File {
 public:

@@ -31,11 +31,11 @@
 #include "drives.h"
 #include "support.h"
 
-#if !defined(WIN32)
-#include <libgen.h>
-#else
-#include <string.h>
-#endif
+//#if !defined(WIN32)
+//#include <libgen.h>
+//#else
+//#include <string.h>
+//#endif
 
 using namespace std;
 
@@ -392,7 +392,7 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file, int sectorSize, bool mod
 }
 
 #if defined(WIN32) || defined(PSP)
-char* dirname(char * file) {
+static string dirname(char * file) {
 	char * sep = strrchr(file, '\\');
 	if (sep == NULL)
 		sep = strrchr(file, '/');

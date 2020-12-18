@@ -1671,7 +1671,7 @@ static void end_game() {
 	sceKernelExitGame();
 }
 
-static bool cache_initialized;
+extern bool cache_initialized;
 
 static int psp_exit_callback(int arg1, int arg2, void *common) {
 	sceKernelTerminateDeleteThread(main_thid);
