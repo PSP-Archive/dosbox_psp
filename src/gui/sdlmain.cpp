@@ -1647,19 +1647,18 @@ __attribute__((constructor)) void install_trap_handler() {
 	option.position = 0;
 	option.access = 1;
 
-	//if(realpath("exception.prx", path) && ((modid = sceKernelLoadModule(path, 0, &option)) >= 0)) {
-		//args[0] = (int)trap_handler;
-		//args[1] = (int)&exception_regs;
-		//sceKernelStartModule(modid, 8, args, &fd, NULL);
-	//}
+	if((modid = sceKernelLoadModule("exception.prx", 0, &option)) >= 0) {
+		args[0] = (int)trap_handler;
+		args[1] = (int)&exception_regs;
+		sceKernelStartModule(modid, 8, args, &fd, NULL);
+	}
 
-	//if(realpath("fixup.prx", path) && ((modid = sceKernelLoadModule(path, 0, &option)) >= 0)) {
-		//fixup = true;
-		//sceKernelStartModule(modid, 0, args, &fd, NULL);
-		//sceKernelUnloadModule(modid);
-	//}
+	if((modid = sceKernelLoadModule("fixup.prx", 0, &option)) >= 0) {
+		fixup = true;
+		sceKernelStartModule(modid, 0, args, &fd, NULL);
+		sceKernelUnloadModule(modid);
+	}
 }
-
 static SceUID main_thid;
 static int exit_cbid;
 
