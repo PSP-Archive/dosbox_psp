@@ -210,6 +210,14 @@ case "$target_cpu" in
     c_targetcpu="m68k"
     c_unalignedmemory=yes
     ;;
+   mipsallegrex*)
+    AC_DEFINE(C_TARGETCPU,MIPSEL)
+    AC_MSG_RESULT(MIPSEL)
+    c_targetcpu="mipsel"
+    c_unalignedmemory=yes
+    AC_DEFINE(C_DYNREC,1)
+    AC_MSG_RESULT(yes)
+    ;;
    *)
     AC_DEFINE(C_TARGETCPU,UNKNOWN)
     AC_MSG_RESULT(unknown)
