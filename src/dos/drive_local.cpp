@@ -460,7 +460,11 @@ bool localFile::Write(Bit8u * data,Bit16u * size) {
 	if (last_action==READ) fseek(fhandle,ftell(fhandle),SEEK_SET);
 	last_action=WRITE;
 	if(*size==0){  
-        return (!ftruncate(fileno(fhandle),ftell(fhandle)));
+        #ifdef PSP
+            return true;
+        #else
+            return (!ftruncate(fileno(fhandle),ftell(fhandle)));
+        #endif
     }
     else 
     {
