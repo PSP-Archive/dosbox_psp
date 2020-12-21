@@ -1326,7 +1326,7 @@ void INPUTMAP::Run(void) {
 			DOS_Shell shell;
 			control_map = true;
 			shell.Execute(filename,args);
-			control_map = false;
+			//control_map = false;
 			return;
 		}
 	} else if(cmd->FindExist("analog", true)) {
